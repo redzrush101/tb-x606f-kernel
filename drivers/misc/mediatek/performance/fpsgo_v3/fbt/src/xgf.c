@@ -213,7 +213,7 @@ static inline int xgf_is_enable(void)
 {
 	xgf_lockprove(__func__);
 
-	return xgf_enable;
+	return xgf_enable && xgf_ko_ready;
 }
 
 unsigned long long xgf_get_time(void)
