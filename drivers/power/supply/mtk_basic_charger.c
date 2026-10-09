@@ -127,22 +127,24 @@ static bool support_fast_charging(struct mtk_charger *info)
 	}
 	return ret;
 }
-bool is_dock_charger()
+bool is_dock_charger(void)
 {
-	union power_supply_propval reta = {0,};
-	struct power_supply *ext_psy = power_supply_get_by_name("customer");
+	union power_supply_propval val;
+	struct power_supply *psy;
+	bool is_dock = false;
 
-	power_supply_get_property(ext_psy,POWER_SUPPLY_PROP_charge_dock,&reta);
-	if(reta.intval == 1)
-	{
-		power_supply_get_property(ext_psy,POWER_SUPPLY_PROP_charge_usb,&reta);
-		if(reta.intval == 1)
-		{
-			return false;
-		}
-		return true;
-	}
-	return false;
+	psy = power_supply_get_by_name("customer");
+	if (!psy)
+		return false;
+
+	if (!power_supply_get_property(psy, POWER_SUPPLY_PROP_charge_dock,
+				       &val) && val.intval == 1 &&
+	    !power_supply_get_property(psy, POWER_SUPPLY_PROP_charge_usb,
+				       &val))
+		is_dock = val.intval != 1;
+
+	power_supply_put(psy);
+	return is_dock;
 }
 
 static bool select_charging_current_limit(struct mtk_charger *info,
@@ -150,7 +152,7 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 {
 	struct charger_data *pdata, *pdata2;
 	struct power_supply *ext_psy = power_supply_get_by_name("mm8013");
-        union power_supply_propval reta = {0,};
+	union power_supply_propval reta = { .intval = -1 };
 	bool is_basic = false;
 	u32 ichg1_min = 0, aicr1_min = 0;
 	int ret;
@@ -159,7 +161,12 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 
 	pdata = &info->chg_data[CHG1_SETTING];
 	pdata2 = &info->chg_data[CHG2_SETTING];
-	power_supply_get_property(ext_psy,POWER_SUPPLY_PROP_batt_cap,&reta);
+	if (ext_psy) {
+		if (power_supply_get_property(ext_psy,
+					     POWER_SUPPLY_PROP_batt_cap, &reta))
+			reta.intval = -1;
+		power_supply_put(ext_psy);
+	}
 	if (info->usb_unlimited) {
 		pdata->input_current_limit =
 					info->data.ac_charger_input_current;

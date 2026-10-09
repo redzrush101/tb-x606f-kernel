@@ -328,9 +328,6 @@ static int battery_psy_get_property(struct power_supply *psy,
         struct power_supply *chg_psy = NULL;
 	gm = (struct mtk_battery *)power_supply_get_drvdata(psy);
 	bs_data = &gm->bs_data;
-	if (!ext_psy) {
-		printk("mm8013 off-line error\n", __func__);
-	}
 	if (gm->algo.active == true)
 		bs_data->bat_capacity = gm->ui_soc;
 	switch (psp) {
@@ -594,6 +591,9 @@ static int battery_psy_get_property(struct power_supply *psy,
 
 	bm_debug("%s psp:%d ret:%d val:%d",
 		__func__, psp, ret, val->intval);
+
+	if (ext_psy)
+		power_supply_put(ext_psy);
 
 	return ret;
 }
