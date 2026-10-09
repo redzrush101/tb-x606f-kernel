@@ -423,7 +423,8 @@ static IMG_BOOL MTKDoGpuDVFS(IMG_UINT32 ui32NewFreqID, IMG_BOOL bIdleDevice)
 		ui32CurFreqID = mt_gpufreq_get_cur_freq_index();
 		ui32GPUFreq = mt_gpufreq_get_frequency_by_level(ui32CurFreqID);
 		gpu_freq = ui32GPUFreq;
-#if defined(CONFIG_TRACING) && defined(CONFIG_MTK_SCHED_TRACERS)
+#if defined(CONFIG_TRACING) && defined(CONFIG_MTK_SCHED_TRACERS) && \
+	defined(HAVE_TRACE_GPU_FREQ) /* no gpu_freq tracepoint in 4.19 */
 
 		if (PVRGpuTraceIsEnabled())
 			trace_gpu_freq(ui32GPUFreq);
@@ -483,7 +484,8 @@ static void MTKCommitFreqIdx(unsigned long ui32NewFreqID,
 			mt_gpufreq_get_frequency_by_level(ui32CurFreqID);
 
 			gpu_freq = ui32GPUFreq;
-	#if defined(CONFIG_TRACING) && defined(CONFIG_MTK_SCHED_TRACERS)
+	#if defined(CONFIG_TRACING) && defined(CONFIG_MTK_SCHED_TRACERS) && \
+	defined(HAVE_TRACE_GPU_FREQ) /* no gpu_freq tracepoint in 4.19 */
 
 
 			if (PVRGpuTraceIsEnabled())

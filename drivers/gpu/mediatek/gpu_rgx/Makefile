@@ -13,7 +13,16 @@
 
 $(info [GPU_DEBUG] MTK_GPU_VERSION 2 = $(word 2,$(MTK_GPU_VERSION)))
 
-ifeq ($(word 2,$(MTK_GPU_VERSION)),doma)
+# The kernel driver must match the DDK of the userspace blobs; honour an
+# explicit DDK directory (third word, e.g. "rgx doma m1.11ED5425693").
+ddk := $(word 3,$(MTK_GPU_VERSION))
+ifneq ($(ddk),)
+ifneq ($(wildcard $(srctree)/$(src)/$(ddk)/Makefile),)
+	obj-y += $(ddk)/
+else
+$(error MTK_GPU_VERSION names missing DDK $(ddk))
+endif
+else ifeq ($(word 2,$(MTK_GPU_VERSION)),doma)
 	obj-y += m1.13ED5776728/
 else ifeq ($(word 2,$(MTK_GPU_VERSION)),lorne)
 	obj-y += m1.13ED5776728/
