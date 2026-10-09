@@ -183,13 +183,44 @@ static const struct of_device_id apusb_of_ids[] = {
 
 MODULE_DEVICE_TABLE(of, apusb_of_ids);
 
+/*
+ * The charger-type supply may register after musb probes (it does on the
+ * TB-X606F, where the MT6357 does BC1.2). Keep the notifier registered
+ * anyway and pick the supply up on its first event; the lookup may sleep,
+ * so it runs from a work item rather than the atomic notifier.
+ */
+static void mt_usb_psy_get_work(struct work_struct *work)
+{
+	struct musb *musb = mtk_musb;
+	struct power_supply *psy;
+
+	if (!musb || !IS_ERR_OR_NULL(musb->usb_psy))
+		return;
+	psy = devm_power_supply_get_by_phandle(musb->controller->parent,
+					       "charger");
+	if (IS_ERR_OR_NULL(psy))
+		return;
+	musb->usb_psy = psy;
+	DBG(0, "usb_psy %s found late\n", psy->desc->name);
+	mt_usb_reconnect();
+}
+static DECLARE_WORK(psy_get_work, mt_usb_psy_get_work);
+
 static int mt_usb_psy_notifier(struct notifier_block *nb,
 				unsigned long event, void *ptr)
 {
 	struct musb *musb = container_of(nb, struct musb, psy_nb);
 	struct power_supply *psy = ptr;
 
-	if (event == PSY_EVENT_PROP_CHANGED && psy == musb->usb_psy) {
+	if (event != PSY_EVENT_PROP_CHANGED)
+		return NOTIFY_DONE;
+
+	if (IS_ERR_OR_NULL(musb->usb_psy)) {
+		schedule_work(&psy_get_work);
+		return NOTIFY_DONE;
+	}
+
+	if (psy == musb->usb_psy) {
 
 		DBG(0, "psy=%s, event=%d", psy->desc->name, event);
 
@@ -203,19 +234,24 @@ static int mt_usb_psy_notifier(struct notifier_block *nb,
 
 static int mt_usb_psy_init(struct musb *musb)
 {
+	static bool nb_registered;
 	int ret = 0;
 	struct device *dev = musb->controller->parent;
+
+	if (!nb_registered) {
+		musb->psy_nb.notifier_call = mt_usb_psy_notifier;
+		ret = power_supply_reg_notifier(&musb->psy_nb);
+		if (ret)
+			DBG(0, "failed to reg notifier: %d\n", ret);
+		else
+			nb_registered = true;
+	}
 
 	musb->usb_psy = devm_power_supply_get_by_phandle(dev, "charger");
 	if (IS_ERR_OR_NULL(musb->usb_psy)) {
 		DBG(0, "couldn't get usb_psy\n");
 		return -EINVAL;
 	}
-
-	musb->psy_nb.notifier_call = mt_usb_psy_notifier;
-	ret = power_supply_reg_notifier(&musb->psy_nb);
-	if (ret)
-		DBG(0, "failed to reg notifier: %d\n", ret);
 
 	return ret;
 }
