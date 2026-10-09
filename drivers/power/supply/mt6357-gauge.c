@@ -3229,8 +3229,9 @@ static int mt6357_gauge_probe(struct platform_device *pdev)
 	gauge->hw_status.r_fg_value = 50;
 	gauge->attr = mt6357_sysfs_field_tbl;
 
-	if (battery_psy_init(pdev))
-		return -ENOMEM;
+	ret = battery_psy_init(pdev);
+	if (ret)
+		return ret;
 
 	gauge->psy_desc.name = "mtk-gauge";
 	gauge->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;

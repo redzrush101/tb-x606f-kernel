@@ -15,6 +15,7 @@
 #include <net/sock.h>		/* netlink */
 #include "mtk_battery_daemon.h"
 #include "mtk_battery.h"
+#include "mtk_battery_legacy.h"
 
 #if IS_ENABLED(CONFIG_PMIC_LBAT_SERVICE)
 #include <pmic_lbat_service.h>
@@ -134,6 +135,12 @@ void mtk_battery_send_to_user(struct mtk_battery *gm,
 	if (gm != NULL)
 		pid = gm->fgd_pid;
 
+	if (!gm || !gm->mtk_battery_sk || !pid)
+		return;
+	if (gm->fgd_legacy) {
+		size = reply_msg->fgd_data_len + FGD_LEGACY_HDR_LEN;
+		len = NLMSG_SPACE(size);
+	}
 	reply_msg->identity = FGD_NL_MAGIC;
 
 	if (in_interrupt())
@@ -146,7 +153,20 @@ void mtk_battery_send_to_user(struct mtk_battery *gm,
 
 	nlh = nlmsg_put(skb, pid, seq, 0, size, 0);
 	data = NLMSG_DATA(nlh);
-	memcpy(data, reply_msg, size);
+	if (gm->fgd_legacy) {
+		struct fgd_legacy_msg *legacy = data;
+
+		memset(legacy, 0, FGD_LEGACY_HDR_LEN);
+		legacy->cmd = reply_msg->fgd_cmd;
+		legacy->subcmd = reply_msg->fgd_subcmd;
+		legacy->para1 = reply_msg->fgd_subcmd_para1;
+		legacy->data_len = reply_msg->fgd_data_len;
+		legacy->identity = FGD_NL_MAGIC;
+		memcpy(legacy->data, reply_msg->fgd_data,
+		       reply_msg->fgd_data_len);
+	} else {
+		memcpy(data, reply_msg, size);
+	}
 	NETLINK_CB(skb).portid = 0;	/* from kernel */
 	NETLINK_CB(skb).dst_group = 0;	/* unicast */
 
@@ -2183,7 +2203,7 @@ _out:
 
 
 
-static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
+void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	struct fgd_nl_msg_t *ret_msg)
 {
 	struct fgd_nl_msg_t *msg;
@@ -3614,79 +3634,72 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 
 void mtk_battery_netlink_handler(struct sk_buff *skb)
 {
-	u32 pid;
-	kuid_t uid;
-	int seq;
-	void *data;
+	struct mtk_battery *gm = get_mtk_battery();
+	struct fgd_nl_msg_t *request, *reply;
+	const struct fgd_nl_msg_t *native;
+	const struct fgd_legacy_msg *legacy;
 	struct nlmsghdr *nlh;
-	struct fgd_nl_msg_t *fgd_msg, *fgd_ret_msg;
-	int size = 0;
-	static struct mtk_battery *gm;
+	u32 pid = NETLINK_CREDS(skb)->pid;
+	u32 command, data_len, ret_len, header, payload_len;
+	bool old;
+	int ret = 0;
 
-	if (gm == NULL)
-		gm = get_mtk_battery();
-
-	nlh = (struct nlmsghdr *)skb->data;
-	pid = NETLINK_CREDS(skb)->pid;
-	uid = NETLINK_CREDS(skb)->uid;
-	seq = nlh->nlmsg_seq;
-
-	data = NLMSG_DATA(nlh);
-
-	fgd_msg = (struct fgd_nl_msg_t *)data;
-
-	bm_debug("rcv:%d %d %d %d %d %d\n",
-		fgd_msg->nl_cmd,
-		fgd_msg->fgd_cmd,
-		fgd_msg->fgd_subcmd,
-		fgd_msg->fgd_subcmd_para1,
-		fgd_msg->fgd_data_len,
-		fgd_msg->identity);
-
-	if (fgd_msg->identity != FGD_NL_MAGIC) {
-		bm_err("[%s]not correct MTKFG netlink packet!%d\n",
-			__func__, fgd_msg->identity);
+	if (!gm || skb->len < NLMSG_HDRLEN)
 		return;
-	}
-
-	if (gm->fgd_pid != pid &&
-		fgd_msg->fgd_cmd > FG_DAEMON_CMD_SET_DAEMON_PID) {
-		bm_err("[%s]drop rev netlink pid:%d:%d  cmd:%d:%d\n",
-			__func__,
-			pid,
-			gm->fgd_pid,
-			fgd_msg->fgd_cmd,
-			FG_DAEMON_CMD_SET_DAEMON_PID);
+	nlh = nlmsg_hdr(skb);
+	if (nlh->nlmsg_len < NLMSG_HDRLEN ||
+	    nlh->nlmsg_len > NLMSG_ALIGN(skb->len))
 		return;
-	}
-
-	size = fgd_msg->fgd_ret_data_len + FGD_NL_HDR_LEN;
-
-	if (size > (PAGE_SIZE << 1))
-		fgd_ret_msg = vmalloc(size);
-	else {
-		if (in_interrupt())
-			fgd_ret_msg = kmalloc(size, GFP_ATOMIC);
-		else
-			fgd_ret_msg = kmalloc(size, GFP_KERNEL);
-	}
-
-	if (fgd_ret_msg == NULL) {
-		if (size > PAGE_SIZE)
-			fgd_ret_msg = vmalloc(size);
-
-		if (fgd_ret_msg == NULL)
+	payload_len = min_t(u32, nlh->nlmsg_len, skb->len) - NLMSG_HDRLEN;
+	native = nlmsg_data(nlh);
+	legacy = nlmsg_data(nlh);
+	old = mtk_battery_legacy_message(legacy, payload_len);
+	if (old) {
+		command = legacy->cmd;
+		data_len = legacy->data_len;
+		ret_len = legacy->ret_len;
+		header = FGD_LEGACY_HDR_LEN;
+	} else {
+		if (!nlmsg_ok(nlh, skb->len) || payload_len < FGD_NL_HDR_LEN ||
+		    native->identity != FGD_NL_MAGIC)
 			return;
+		command = native->fgd_cmd;
+		data_len = native->fgd_data_len;
+		ret_len = native->fgd_ret_data_len;
+		header = FGD_NL_HDR_LEN;
+	}
+	if (data_len > FGD_NL_MSG_MAX_LEN ||
+	    data_len > payload_len - header ||
+	    ret_len > FGD_NL_MSG_MAX_LEN)
+		return;
+	if (gm->fgd_pid != pid && command > FG_DAEMON_CMD_SET_DAEMON_PID)
+		return;
+	if (command == FG_DAEMON_CMD_SET_DAEMON_PID) {
+		if (data_len != sizeof(pid))
+			return;
+		gm->fgd_legacy = old;
+	} else if (gm->fgd_pid && old != gm->fgd_legacy) {
+		return;
 	}
 
-	if (!fgd_ret_msg)
-		return;
-
-	memset(fgd_ret_msg, 0, size);
-	mtk_battery_daemon_handler(gm, data, fgd_ret_msg);
-	mtk_battery_send_to_user(gm, seq, fgd_ret_msg);
-
-	kvfree(fgd_ret_msg);
+	/* Full, zeroed objects also bound the donor's fixed-width reads. */
+	request = kvzalloc(sizeof(*request), GFP_KERNEL);
+	reply = kvzalloc(sizeof(*reply), GFP_KERNEL);
+	if (!request || !reply)
+		goto out;
+	if (old)
+		ret = mtk_battery_legacy_dispatch(gm, legacy, request, reply);
+	else {
+		memcpy(request, native, FGD_NL_HDR_LEN + data_len);
+		mtk_battery_daemon_handler(gm, request, reply);
+	}
+	if (!ret && reply->fgd_data_len <= ret_len)
+		mtk_battery_send_to_user(gm, nlh->nlmsg_seq, reply);
+	else
+		bm_err("fuel gauge rejected command %u: %d\n", command, ret);
+out:
+	kvfree(reply);
+	kvfree(request);
 }
 
 
@@ -4362,7 +4375,7 @@ int wakeup_fg_daemon(unsigned int flow_state, int cmd, int para1)
 			size, gm->fgd_pid, intr_name, flow_state, cmd, para1);
 
 		memset(fgd_msg, 0, size);
-		fgd_msg->fgd_cmd = FG_DAEMON_CMD_NOTIFY_DAEMON;
+		fgd_msg->fgd_cmd = gm->fgd_legacy ? 7 : FG_DAEMON_CMD_NOTIFY_DAEMON;
 		fgd_msg->fgd_subcmd = cmd;
 		fgd_msg->fgd_subcmd_para1 = para1;
 		memcpy(fgd_msg->fgd_data, &flow_state, sizeof(flow_state));
@@ -4649,4 +4662,3 @@ int mtk_battery_daemon_init(struct platform_device *pdev)
 	mtk_battery_setup_files(pdev);
 	return 0;
 }
-

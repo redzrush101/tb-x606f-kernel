@@ -799,6 +799,7 @@ struct mtk_battery {
 	struct mtk_battery_algo algo;
 
 	u_int fgd_pid;
+	bool fgd_legacy;
 
 	/* adb */
 	int fixed_bat_tmp;

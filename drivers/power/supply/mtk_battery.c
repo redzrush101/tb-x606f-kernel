@@ -17,6 +17,7 @@
 #include <linux/of_fdt.h>	/*of_dt API*/
 #include <linux/power_supply.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>	/* platform device */
 #include <linux/proc_fs.h>
 #include <linux/reboot.h>	/*kernel_power_off*/
@@ -413,6 +414,15 @@ static int battery_psy_get_property(struct power_supply *psy,
 			val->intval = gm->fixed_uisoc;
 		else
 			val->intval = bs_data->bat_capacity;
+		/* The legacy daemon can start after Android's first health poll. */
+		if (gm->fgd_legacy && val->intval < 0 &&
+		    !gm->gauge->hw_status.rtc_invalid) {
+			int rtc_soc;
+
+			ret = gauge_get_property(GAUGE_PROP_RTC_UI_SOC, &rtc_soc);
+			if (!ret && rtc_soc >= 0 && rtc_soc <= 100)
+				val->intval = rtc_soc;
+		}
 		if(gm->battery_id == 2)
 		{
 			if (ext_psy) {
@@ -3202,12 +3212,29 @@ int battery_psy_init(struct platform_device *pdev)
 {
 	struct mtk_battery *gm;
 	struct mtk_gauge *gauge;
+	struct platform_device *supply_pdev = NULL;
+	struct device_node *supply_node;
+	struct device *parent = &pdev->dev;
 	int ret;
+
+	/* Android 10 genfs labels depend on the original battery path. */
+	supply_node = of_parse_phandle(pdev->dev.of_node,
+				      "mediatek,battery-supply-parent", 0);
+	if (supply_node) {
+		supply_pdev = of_find_device_by_node(supply_node);
+		of_node_put(supply_node);
+		if (!supply_pdev)
+			return -EPROBE_DEFER;
+		parent = &supply_pdev->dev;
+	}
 
 	bm_err("[%s]\n", __func__);
 	gm = devm_kzalloc(&pdev->dev, sizeof(*gm), GFP_KERNEL);
-	if (!gm)
+	if (!gm) {
+		if (supply_pdev)
+			put_device(&supply_pdev->dev);
 		return -ENOMEM;
+	}
 
 	gauge = dev_get_drvdata(&pdev->dev);
 	gauge->gm = gm;
@@ -3217,7 +3244,9 @@ int battery_psy_init(struct platform_device *pdev)
 	battery_service_data_init(gm);
 	gm->bs_data.psy =
 		power_supply_register(
-			&(pdev->dev), &gm->bs_data.psd, &gm->bs_data.psy_cfg);
+			parent, &gm->bs_data.psd, &gm->bs_data.psy_cfg);
+	if (supply_pdev)
+		put_device(&supply_pdev->dev);
 	if (IS_ERR(gm->bs_data.psy)) {
 		bm_err("[BAT_probe] power_supply_register Battery Fail !!\n");
 		ret = PTR_ERR(gm->bs_data.psy);
@@ -3373,4 +3402,3 @@ int battery_init(struct platform_device *pdev)
 
 	return 0;
 }
-
