@@ -16,7 +16,12 @@
 
 OBJCOPYFLAGS_Image :=-O binary -R .note -R .note.gnu.build-id -R .comment -S
 
-targets := Image Image.bz2 Image.gz Image.lz4 Image.lzma Image.lzo
+targets := Image Image.bz2 Image.gz Image.lz4 Image.lzma Image.lzo \
+	   Image-dtb Image.gz-dtb
+
+# MediaTek bootloaders take the main SoC DTB appended to the kernel image.
+DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES))
+DTB_OBJS := $(addprefix $(obj)/dts/,$(addsuffix .dtb,$(DTB_NAMES)))
 
 $(obj)/Image: vmlinux FORCE
 	$(call if_changed,objcopy)
@@ -26,6 +31,12 @@ $(obj)/Image.bz2: $(obj)/Image FORCE
 
 $(obj)/Image.gz: $(obj)/Image FORCE
 	$(call if_changed,gzip)
+
+$(obj)/Image-dtb: $(obj)/Image $(DTB_OBJS) FORCE
+	$(call if_changed,cat)
+
+$(obj)/Image.gz-dtb: $(obj)/Image.gz $(DTB_OBJS) FORCE
+	$(call if_changed,cat)
 
 $(obj)/Image.lz4: $(obj)/Image FORCE
 	$(call if_changed,lz4)
