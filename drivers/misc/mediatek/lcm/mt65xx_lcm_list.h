@@ -161,6 +161,8 @@ extern struct LCM_DRIVER nt35520_hd720_boe_lcm_drv;
 extern struct LCM_DRIVER nt35521_hd720_dsi_vdo_boe_lcm_drv;
 extern struct LCM_DRIVER nt35521_hd720_tm_lcm_drv;
 extern struct LCM_DRIVER nt35521_hd_dsi_vdo_truly_rt5081_lcm_drv;
+extern struct LCM_DRIVER mipi_ft8201_video_1200p_lcm_drv;
+extern struct LCM_DRIVER mipi_hx83102e_video_1200p_lcm_drv;
 extern struct LCM_DRIVER mipi_hx83102e_boe_video_800p_lcm_drv;
 extern struct LCM_DRIVER mipi_hx83102e_inx_video_800p_lcm_drv;
 extern struct LCM_DRIVER mipi_nt36523a_inx_video_800p_lcm_drv;

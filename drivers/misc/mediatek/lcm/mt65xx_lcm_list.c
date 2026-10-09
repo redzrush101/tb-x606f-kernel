@@ -21,6 +21,14 @@ enum LCM_DSI_MODE_CON lcm_dsi_mode;
 #define LCD_HW_ID_STATUS_ERROR  0x03
 
 struct LCM_DRIVER *lcm_driver_list[] = {
+#if defined(PANEL_MIPI_FT8201_VIDEO_1200P)
+	&mipi_ft8201_video_1200p_lcm_drv,
+#endif
+
+#if defined(PANEL_MIPI_HX83102E_VIDEO_1200P)
+	&mipi_hx83102e_video_1200p_lcm_drv,
+#endif
+
 #if defined(PANEL_MIPI_NT36523A_INX_VIDEO_800P)
 	&mipi_nt36523a_inx_video_800p_lcm_drv,
 #endif
