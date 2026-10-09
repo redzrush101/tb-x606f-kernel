@@ -6,4 +6,5 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/
 
 obj-$(CONFIG_TOUCHSCREEN_NT36XXX)              += NT36XXX/
 obj-$(CONFIG_TOUCHSCREEN_HIMAX_CHIPSET)	+= himax83102e_hd_touch/
+obj-$(CONFIG_TOUCHSCREEN_MTK_FT8201)	+= focaltech_mmi/
 obj-y += tp_common/

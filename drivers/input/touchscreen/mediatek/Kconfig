@@ -46,5 +46,7 @@ source "drivers/input/touchscreen/mediatek/himax83102e_hd_touch/Kconfig"
 
 source "drivers/input/touchscreen/mediatek/NT36XXX/Kconfig"
 
+source "drivers/input/touchscreen/mediatek/focaltech_mmi/Kconfig"
+
 endif
 

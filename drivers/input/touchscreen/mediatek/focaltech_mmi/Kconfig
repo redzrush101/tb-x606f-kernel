@@ -1,0 +1,10 @@
+# FocalTech FT8201 touchscreen driver
+
+config TOUCHSCREEN_MTK_FT8201
+	bool "FocalTech FT8201 touchscreen"
+	help
+	  Say Y here for the FocalTech FT8201 controller on the Lenovo
+	  TB-X606F. This driver supports touch reporting, gestures and
+	  controller firmware loading through the MediaTek touch framework.
+
+	  If unsure, say N.
