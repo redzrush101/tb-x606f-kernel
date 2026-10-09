@@ -144,6 +144,11 @@ struct mdp_readback {
 
 #define CMDQ_IOCTL_ASYNC_EXEC _IOW(CMDQ_IOCTL_MAGIC_NUMBER, 20, \
 	struct mdp_submit)
+/* Android 10 predates the appended secData.mtee selector. */
+#define MDP_SUBMIT_LEGACY_SIZE offsetof(struct mdp_submit, secData.mtee)
+#define CMDQ_IOCTL_ASYNC_EXEC_LEGACY _IOC(_IOC_WRITE, \
+	CMDQ_IOCTL_MAGIC_NUMBER, 20, MDP_SUBMIT_LEGACY_SIZE)
+
 #define CMDQ_IOCTL_ASYNC_WAIT _IOR(CMDQ_IOCTL_MAGIC_NUMBER, 21, \
 	struct mdp_wait)
 

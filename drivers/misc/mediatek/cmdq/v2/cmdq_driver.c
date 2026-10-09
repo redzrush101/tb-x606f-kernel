@@ -606,9 +606,10 @@ long cmdq_ioctl(struct file *pFile, unsigned int code,
 	case CMDQ_IOCTL_NOTIFY_ENGINE:
 		status = cmdq_driver_ioctl_notify_engine(param);
 		break;
+	case CMDQ_IOCTL_ASYNC_EXEC_LEGACY:
 	case CMDQ_IOCTL_ASYNC_EXEC:
 		CMDQ_MSG("ioctl CMDQ_IOCTL_ASYNC_EXEC\n");
-		status = mdp_ioctl_async_exec(pFile, param);
+		status = mdp_ioctl_async_exec(pFile, param, _IOC_SIZE(code));
 		break;
 	case CMDQ_IOCTL_ASYNC_WAIT:
 		CMDQ_MSG("ioctl CMDQ_IOCTL_ASYNC_WAIT\n");
@@ -649,6 +650,7 @@ static long cmdq_ioctl_compat(struct file *pFile, unsigned int code,
 	case CMDQ_IOCTL_QUERY_CAP_BITS:
 	case CMDQ_IOCTL_QUERY_DTS:
 	case CMDQ_IOCTL_NOTIFY_ENGINE:
+	case CMDQ_IOCTL_ASYNC_EXEC_LEGACY:
 	case CMDQ_IOCTL_ASYNC_EXEC:
 	case CMDQ_IOCTL_ASYNC_WAIT:
 	case CMDQ_IOCTL_ALLOC_READBACK_SLOTS:

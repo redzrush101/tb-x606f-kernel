@@ -565,7 +565,8 @@ static int mdp_implement_read_v1(struct mdp_submit *user_job,
 
 #define CMDQ_MAX_META_COUNT 0x100000
 
-s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
+s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param,
+	size_t user_size)
 {
 	struct mdp_submit user_job = {0};
 	struct task_private desc_private = {0};
@@ -575,12 +576,17 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 	struct cmdq_command_buffer cmd_buf;
 	struct mdp_job_mapping *mapping_job = NULL;
 
+	BUILD_BUG_ON(MDP_SUBMIT_LEGACY_SIZE != 336);
+	if (user_size != sizeof(user_job) &&
+		user_size != MDP_SUBMIT_LEGACY_SIZE)
+		return -EINVAL;
+
 	mapping_job = kzalloc(sizeof(*mapping_job), GFP_KERNEL);
 	if (!mapping_job)
 		return -ENOMEM;
 
 	if (param && copy_from_user(&user_job, (void *)param,
-		sizeof(user_job))) {
+		user_size)) {
 		CMDQ_ERR("copy mdp_submit from user fail\n");
 		kfree(mapping_job);
 		return -EFAULT;
@@ -709,7 +715,7 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 	mutex_unlock(&mdp_job_mapping_list_mutex);
 
 	if (param && copy_to_user((void *)param, &user_job,
-		sizeof(user_job))) {
+		user_size)) {
 		CMDQ_ERR("CMDQ_IOCTL_ASYNC_EXEC copy_to_user failed\n");
 		return -EFAULT;
 	}
@@ -989,10 +995,11 @@ static long mdp_limit_ioctl(struct file *pf, unsigned int code,
 		CMDQ_MSG("ioctl CMDQ_IOCTL_NOTIFY_ENGINE\n");
 		status = cmdq_driver_ioctl_notify_engine(param);
 		break;
+	case CMDQ_IOCTL_ASYNC_EXEC_LEGACY:
 	case CMDQ_IOCTL_ASYNC_EXEC:
 		CMDQ_MSG("ioctl CMDQ_IOCTL_ASYNC_EXEC\n");
 		CMDQ_SYSTRACE_BEGIN("%s_async_exec\n", __func__);
-		status = mdp_ioctl_async_exec(pf, param);
+		status = mdp_ioctl_async_exec(pf, param, _IOC_SIZE(code));
 		CMDQ_SYSTRACE_END();
 		break;
 	case CMDQ_IOCTL_ASYNC_WAIT:
@@ -1033,6 +1040,7 @@ static long mdp_limit_ioctl_compat(struct file *pFile, unsigned int code,
 	case CMDQ_IOCTL_QUERY_CAP_BITS:
 	case CMDQ_IOCTL_QUERY_DTS:
 	case CMDQ_IOCTL_NOTIFY_ENGINE:
+	case CMDQ_IOCTL_ASYNC_EXEC_LEGACY:
 	case CMDQ_IOCTL_ASYNC_EXEC:
 	case CMDQ_IOCTL_ASYNC_WAIT:
 	case CMDQ_IOCTL_ALLOC_READBACK_SLOTS:
