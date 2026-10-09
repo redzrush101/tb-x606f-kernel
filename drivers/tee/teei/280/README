@@ -1,0 +1,24 @@
+Microtrust legacy Android 10 transport
+=====================================
+
+Imported from Lenovo tab_m10_fhd_plus_opensource_tb-x606m_s000213_200302_bmain,
+kernel-4.9/drivers/misc/mediatek/teei/280. Original copyright and GPL notices
+are retained. Selected with CONFIG_MICROTRUST_TEE_VERSION="280".
+
+The X606F Android 10 stock kernel exposes create_cmd_buff, invoke_fastcall,
+register_soter_irq_handler and the 20-UUID configuration ioctl. These are
+the legacy message-buffer and 32-byte notification queue interfaces. The
+runtime config's "300" string does not identify the secure firmware's ABI.
+The donor 300 transport instead sends b400000c to an ATF which rejects it.
+
+4.19 adaptations:
+- CPU hotplug state callbacks replace the removed CPU notifier interface.
+- system_transition_mutex replaces the 4.9 power management mutex.
+- DMA-buf mapping, signal includes, bootprof and Clang operand widths follow
+  the 4.19 interfaces.
+- isee_* names and isee_tee core name avoid the generic Linux TEE symbols.
+  Userspace device names and the legacy wire protocols are preserved.
+
+See the workspace notes/port/2026-10-08-android10-tee-compat.md for measured
+firmware evidence, build commands and device validation. The 300 donor
+implementation remains available independently.
