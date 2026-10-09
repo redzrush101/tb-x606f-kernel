@@ -10,6 +10,7 @@
 #include <linux/mfd/mt6397/core.h>/* PMIC MFD core header */
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/power_supply.h>
@@ -96,6 +97,7 @@ struct mtk_charger_type {
 };
 
 static enum power_supply_property chr_type_properties[] = {
+	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_CHARGE_ENABLED,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_SHIP_MODE,
@@ -624,12 +626,42 @@ static int psy_chr_type_get_property(struct power_supply *psy,
 	enum power_supply_property psp, union power_supply_propval *val)
 {
 	struct mtk_charger_type *info;
+	struct charger_device *charger;
+	bool enabled, done;
+	int ret;
 	int vbus = 0;
 
 	pr_notice("%s: prop:%d\n", __func__, psp);
 	info = (struct mtk_charger_type *)power_supply_get_drvdata(psy);
 
 	switch (psp) {
+	case POWER_SUPPLY_PROP_STATUS:
+		if (info->type == POWER_SUPPLY_USB_TYPE_UNKNOWN) {
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+			break;
+		}
+		charger = get_charger_by_name("primary_chg");
+		if (!charger) {
+			val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
+			break;
+		}
+		ret = charger_dev_is_enabled(charger, &enabled);
+		if (ret) {
+			put_device(&charger->dev);
+			return ret;
+		}
+		if (!enabled) {
+			put_device(&charger->dev);
+			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+			break;
+		}
+		ret = charger_dev_is_charging_done(charger, &done);
+		put_device(&charger->dev);
+		if (ret)
+			return ret;
+		val->intval = done ? POWER_SUPPLY_STATUS_FULL :
+			POWER_SUPPLY_STATUS_CHARGING;
+		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		if (info->type == POWER_SUPPLY_USB_TYPE_UNKNOWN)
 			val->intval = 0;
@@ -787,12 +819,20 @@ static char *mt6357_charger_supplied_to[] = {
 	"mtk-master-charger"
 };
 
+static void mt6357_put_supply_parent(void *parent)
+{
+	put_device(parent);
+}
+
 static int mt6357_charger_type_probe(struct platform_device *pdev)
 {
 	struct mtk_charger_type *info;
 	struct iio_channel *chan_vbus;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
+	struct device_node *parent_node;
+	struct platform_device *parent_pdev;
+	struct device *supply_parent = dev;
 	int ret = 0;
 
 	pr_notice("%s: starts\n", __func__);
@@ -809,6 +849,20 @@ static int mt6357_charger_type_probe(struct platform_device *pdev)
 		GFP_KERNEL);
 	if (!info)
 		return -ENOMEM;
+
+	/* Preserve stock genfs paths for the AC and USB supplies. */
+	parent_node = of_parse_phandle(np, "mediatek,ac-usb-supply-parent", 0);
+	if (parent_node) {
+		parent_pdev = of_find_device_by_node(parent_node);
+		of_node_put(parent_node);
+		if (!parent_pdev)
+			return -EPROBE_DEFER;
+		supply_parent = &parent_pdev->dev;
+		ret = devm_add_action_or_reset(dev, mt6357_put_supply_parent,
+					       supply_parent);
+		if (ret)
+			return ret;
+	}
 
 	info->chip = (struct mt6397_chip *)dev_get_drvdata(
 		pdev->dev.parent);
@@ -871,7 +925,7 @@ static int mt6357_charger_type_probe(struct platform_device *pdev)
 	pr_notice("%s: bc12_active:%d\n", __func__, info->bc12_active);
 
 	if (info->bc12_active) {
-		info->ac_psy = power_supply_register(&pdev->dev,
+		info->ac_psy = power_supply_register(supply_parent,
 				&info->ac_desc, &info->ac_cfg);
 
 		if (IS_ERR(info->ac_psy)) {
@@ -880,7 +934,7 @@ static int mt6357_charger_type_probe(struct platform_device *pdev)
 			return PTR_ERR(info->ac_psy);
 		}
 
-		info->usb_psy = power_supply_register(&pdev->dev,
+		info->usb_psy = power_supply_register(supply_parent,
 				&info->usb_desc, &info->usb_cfg);
 
 		if (IS_ERR(info->usb_psy)) {
