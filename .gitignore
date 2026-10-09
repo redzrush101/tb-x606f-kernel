@@ -1,0 +1,13 @@
+# Preserve the source drop's bundled build output without tracking it.
+/out/
+/out-*/
+*.o
+*.ko
+*.cmd
+*.mod.c
+*.order
+*.symvers
+/.config
+/.config.old
+/vmlinux
+/System.map
