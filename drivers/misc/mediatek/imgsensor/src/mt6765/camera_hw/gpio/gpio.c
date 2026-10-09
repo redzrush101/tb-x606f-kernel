@@ -3,6 +3,8 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <linux/bitops.h>
+
 #include "gpio.h"
 
 struct GPIO_PINCTRL gpio_pinctrl_list_cam[GPIO_CTRL_STATE_MAX_NUM_CAM] = {
@@ -31,7 +33,8 @@ struct GPIO_PINCTRL gpio_pinctrl_list_switch[GPIO_CTRL_STATE_MAX_NUM_SWITCH] = {
 static struct GPIO gpio_instance;
 
 /*
- * reset all state of gpio to default value
+ * Reset only GPIOs programmed by camera power sequences. Unused pinctrl
+ * states may describe pins belonging to other hardware on this board.
  */
 static enum IMGSENSOR_RETURN gpio_release(void *pinstance)
 {
@@ -53,7 +56,8 @@ static enum IMGSENSOR_RETURN gpio_release(void *pinstance)
 			lookup_names =
 				gpio_pinctrl_list_cam[i].ppinctrl_lookup_names;
 			mutex_lock(&pinctrl_mutex);
-			if (lookup_names != NULL &&
+			if (test_bit(i / 2, &pgpio->used_pins[j]) &&
+				lookup_names != NULL &&
 				pgpio->ppinctrl_state_cam[j][i] != NULL &&
 				  !IS_ERR(pgpio->ppinctrl_state_cam[j][i]) &&
 				pinctrl_select_state(pgpio->ppinctrl,
@@ -148,7 +152,8 @@ static enum IMGSENSOR_RETURN gpio_set(
 	enum   GPIO_STATE            gpio_state;
 
 
-	if (pin < IMGSENSOR_HW_PIN_PDN ||
+	if ((unsigned int)sensor_idx >= IMGSENSOR_SENSOR_IDX_MAX_NUM ||
+	    pin < IMGSENSOR_HW_PIN_PDN ||
 #ifdef MIPI_SWITCH
 	   pin > IMGSENSOR_HW_PIN_MIPI_SWITCH_SEL ||
 #else
@@ -192,6 +197,9 @@ static enum IMGSENSOR_RETURN gpio_set(
 		    "%s : pinctrl err, PinIdx %d, Val %d\n",
 		    __func__,
 		    pin, pin_state);
+	else if (pin - IMGSENSOR_HW_PIN_PDN < GPIO_CTRL_STATE_MAX_NUM_CAM / 2)
+		set_bit(pin - IMGSENSOR_HW_PIN_PDN,
+			&pgpio->used_pins[sensor_idx]);
 
 	mutex_unlock(&pinctrl_mutex);
 

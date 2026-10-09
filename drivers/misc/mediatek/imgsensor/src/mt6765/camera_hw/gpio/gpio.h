@@ -52,6 +52,7 @@ struct GPIO_PINCTRL {
 };
 
 struct GPIO {
+	unsigned long used_pins[IMGSENSOR_SENSOR_IDX_MAX_NUM];
 	struct pinctrl       *ppinctrl;
 	struct pinctrl_state *ppinctrl_state_cam[
 		IMGSENSOR_SENSOR_IDX_MAX_NUM][GPIO_CTRL_STATE_MAX_NUM_CAM];
