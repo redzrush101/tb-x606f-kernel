@@ -428,7 +428,7 @@
 &i2c6 {
 
 	mm8013@55 {
-		status = "ok";
+		status = "disabled";
 		compatible = "mediatek,mm8013";
 		reg = <0x55>;
 	};
@@ -974,6 +974,8 @@
 
 /* Stock powers Vldo28 through MAINAF while probing the rear sensor. */
 &camera_af_hw_node {
+	/* Supply metadata; the lens drivers create their own platform devices. */
+	status = "disabled";
 	camaf_m1_pmic-supply = <&mt_pmic_vldo28_ldo_reg>;
 };
 
@@ -1036,6 +1038,11 @@
 /* The reset-only watchdog driver does not consume an interrupt. */
 &toprgu {
 	interrupts;
+};
+
+/* WUSB3801 provides Type-C role detection without a PD controller. */
+&pd_adapter {
+	status = "disabled";
 };
 
 #include "achilles6_row_wifi_cust.dtsi"
