@@ -947,6 +947,18 @@ static int bq25601_enable_charging(struct charger_device *chg_dev,
 	return status;
 }
 
+static int bq25601_is_charging_enabled(struct charger_device *chg_dev,
+	bool *enabled)
+{
+	u8 value;
+
+	if (bq25601_read_interface(bq25601_CON1, &value,
+		CON1_CHG_CONFIG_MASK, CON1_CHG_CONFIG_SHIFT) != 1)
+		return -EIO;
+	*enabled = !!value;
+	return 0;
+}
+
 static int bq25601_get_current(struct charger_device *chg_dev,
 			       u32 *ichg)
 {
@@ -1083,19 +1095,15 @@ static int bq25601_set_vindpm_voltage(struct charger_device *chg_dev,
 }
 
 static int bq25601_get_charging_status(struct charger_device *chg_dev,
-				       bool *is_done)
+	bool *is_done)
 {
-	unsigned int status = true;
-	unsigned int ret_val;
+	u8 value;
 
-	ret_val = bq25601_get_chrg_stat();
-
-	if (ret_val == 0x3)
-		*is_done = true;
-	else
-		*is_done = false;
-
-	return status;
+	if (bq25601_read_interface(bq25601_CON8, &value,
+		CON8_CHRG_STAT_MASK, CON8_CHRG_STAT_SHIFT) != 1)
+		return -EIO;
+	*is_done = value == 3;
+	return 0;
 }
 
 static int bq25601_enable_otg(struct charger_device *chg_dev, bool en)
@@ -1265,6 +1273,11 @@ static int bq25601_is_enabled_vbus(struct regulator_dev *rdev)
 	return bq25601_get_otg_config();
 }
 
+static int bq25601_is_otg(void)
+{
+	return bq25601_get_otg_config();
+}
+
 static const struct regulator_ops bq25601_vbus_ops = {
 	.enable = bq25601_enable_vbus,
 	.disable = bq25601_disable_vbus,
@@ -1289,6 +1302,7 @@ static struct charger_ops bq25601_chg_ops = {
 	/* Normal charging */
 	.dump_registers = bq25601_dump_register,
 	.enable = bq25601_enable_charging,
+	.is_enabled = bq25601_is_charging_enabled,
 	.get_charging_current = bq25601_get_current,
 	.set_charging_current = bq25601_set_current,
 	.get_input_current = bq25601_get_input_current,
@@ -1311,6 +1325,7 @@ static struct charger_ops bq25601_chg_ops = {
 
 	/* OTG */
 	.enable_otg = bq25601_enable_otg,
+	.is_otg = bq25601_is_otg,
 	.set_boost_current_limit = bq25601_set_boost_current_limit,
 	.event = bq25601_do_event,
 };
