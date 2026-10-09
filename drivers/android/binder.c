@@ -6215,7 +6215,8 @@ static int __init binder_init(void)
 				    &binder_transaction_log_fops);
 	}
 
-	if (!IS_ENABLED(CONFIG_ANDROID_BINDERFS) &&
+	if ((!IS_ENABLED(CONFIG_ANDROID_BINDERFS) ||
+	     IS_ENABLED(CONFIG_ANDROID_BINDER_MISC_DEVICES)) &&
 	    strcmp(binder_devices_param, "") != 0) {
 		/*
 		* Copy the module_parameter string, because we don't want to

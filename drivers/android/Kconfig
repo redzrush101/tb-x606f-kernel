@@ -32,6 +32,17 @@ config ANDROID_BINDERFS
 	  It can be used to dynamically allocate new binder IPC devices via
 	  ioctls.
 
+config ANDROID_BINDER_MISC_DEVICES
+	bool "Also create binder devices as /dev misc devices"
+	depends on ANDROID_BINDERFS
+	default n
+	---help---
+	  With binderfs enabled, the devices named in binder.devices only
+	  exist inside a binderfs mount. Userspace older than Android 11
+	  does not mount binderfs and opens /dev/binder, /dev/hwbinder and
+	  /dev/vndbinder directly; init aborts without them. Say Y to
+	  register those names as misc devices as well.
+
 config ANDROID_BINDER_DEVICES
 	string "Android Binder devices"
 	depends on ANDROID_BINDER_IPC
