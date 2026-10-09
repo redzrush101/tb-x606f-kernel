@@ -17,4 +17,4 @@ obj-$(CONFIG_CUSTOM_KERNEL_SENSOR_FUSION) += sensorfusion/
 else
 obj-y += dummy.o
 endif
-obj-$(CONFIG_MTK_SX9310) += capsensor/
+obj-y += capsensor/

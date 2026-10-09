@@ -8,3 +8,11 @@ config MTK_SX9310
 	help
 	  Say Y to enable the SAR detection application, if N here not to use the
 	  this SAR sensor
+
+config MTK_SX9311
+	tristate "Lenovo SX9311 SAR sensor"
+	depends on I2C && INPUT
+	select REGMAP_I2C
+	help
+	  SX9311 SAR input support with the TB-X606F Android 10 tuning and
+	  key mapping. This is separate from the donor SX932x implementation.
