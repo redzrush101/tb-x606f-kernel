@@ -1,0 +1,1039 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Lenovo TB-X606F (achilles6_row_wifi) board overlay for MT6765/MT8768.
+ *
+ * Derived from the overlay shipped in the Android 10 S301068 dtbo partition
+ * and adapted to the 4.19 driver bindings.
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/mt6765-pinfunc.h>
+#include <dt-bindings/clock/mt6765-clk.h>
+#include <dt-bindings/sound/dspg.h>
+/dts-v1/;
+/plugin/;
+
+
+/* The board's ODM node owns the sole vibrator LED. */
+&regulator_vibrator {
+	status = "disabled";
+};
+
+&reserved_memory {
+	#address-cells = <0x02>;
+	#size-cells = <0x02>;
+	ranges;
+
+	/* Android 10 Microtrust 300 shared pool, as reserved by the stock DT. */
+	soter-shared-mem {
+		compatible = "microtrust,shared_mem";
+		no-map;
+		size = <0x00 0x2000000>;
+		alignment = <0x00 0x2000000>;
+		alloc-ranges = <0x00 0x40000000 0x00 0x50000000>;
+	};
+
+	zmc-default {
+		compatible = "mediatek,zone_movable_cma";
+		size = <0x00 0x10000000>;
+		alignment = <0x00 0x10000000>;
+		alloc-ranges = <0x00 0x00 0x01 0x00>;
+	};
+};
+
+&chosen {
+	atag,videolfb-fb_base_h = <0x00>;
+	atag,videolfb-fb_base_l = <0x5e605000>;
+	atag,videolfb-islcmfound = <0x01>;
+	atag,videolfb-islcm_inited = <0x00>;
+	atag,videolfb-fps = <0x1770>;
+	atag,videolfb-vramSize = <0x17bb000>;
+	atag,videolfb-lcmname = "nt35695B_fhd_dsi_cmd_auo_rt5081_drv";
+};
+
+&odm {
+
+	bq2560x {
+		compatible = "mediatek,sw-charger";
+		interrupt-parent = <&pio>;
+		interrupts = <0x02 0x08 0x02 0x00>;
+		status = "okay";
+	};
+
+	dock_pogo {
+		compatible = "mediatek,dock_pogo";
+		usb_status = <&pio 0x09 0x00>;
+		dock_status = <&pio 0x05 0x00>;
+	};
+
+	audio_pa {
+		compatible = "mediatek,audio_pa";
+		extamp_1 = <&pio 0x97 0x00>;
+		extamp_2 = <&pio 0x99 0x00>;
+	};
+
+	dock_int {
+		compatible = "mediatek,pogo_int";
+		interrupt-parent = <&pio>;
+		interrupts = <0x05 0x03 0x05 0x00>;
+	};
+
+	wusb3801x {
+		compatible = "mediatek, EINT_TYPEC-eint";
+		interrupt-parent = <&pio>;
+		interrupts = <0x98 0x08 0x98 0x00>;
+		status = "okay";
+	};
+
+	led: led@0 {
+		compatible = "mediatek,red";
+		led_mode = <0x00>;
+		data = <0x01>;
+		pwm_config = <0x00 0x00 0x00 0x00 0x00>;
+	};
+
+	led_47: led@1 {
+		compatible = "mediatek,green";
+		led_mode = <0x00>;
+		data = <0x01>;
+		pwm_config = <0x00 0x00 0x00 0x00 0x00>;
+	};
+
+	led_48: led@2 {
+		compatible = "mediatek,blue";
+		led_mode = <0x00>;
+		data = <0x01>;
+		pwm_config = <0x00 0x00 0x00 0x00 0x00>;
+	};
+
+	led_49: led@3 {
+		compatible = "mediatek,jogball-backlight";
+		led_mode = <0x00>;
+		data = <0x01>;
+		pwm_config = <0x00 0x00 0x00 0x00 0x00>;
+	};
+
+	led_4a: led@4 {
+		compatible = "mediatek,keyboard-backlight";
+		led_mode = <0x00>;
+		data = <0x01>;
+		pwm_config = <0x00 0x00 0x00 0x00 0x00>;
+	};
+
+	led_4b: led@5 {
+		compatible = "mediatek,button-backlight";
+		led_mode = <0x00>;
+		data = <0x01>;
+		pwm_config = <0x00 0x00 0x00 0x00 0x00>;
+	};
+
+	led_4c: led@6 {
+		compatible = "mediatek,lcd-backlight";
+		led_mode = <0x04>;
+		data = <0x01>;
+		pwm_config = <0x00 0x03 0x00 0x00 0x00>;
+	};
+
+	vibrator: vibrator@0 {
+		/* Keep the stock sysfs path used by Android 10 SELinux policy. */
+		compatible = "regulator-vibrator";
+		vib-supply = <&mt_pmic_vibr_ldo_reg>;
+		min-volt = <3000000>;
+		max-volt = <3000000>;
+		min-limit = <25>;
+		max-limit = <15000>;
+	};
+
+	memory_ssmr_features: memory-ssmr-features {
+		compatible = "mediatek,memory-ssmr-features";
+		svp-size = <0x00 0x10000000>;
+		iris-recognition-size = <0x00 0x00>;
+		2d_fr-size = <0x00 0x00>;
+		tui-size = <0x00 0x00>;
+		wfd-size = <0x00 0x00>;
+		prot-sharedmem-size = <0x00 0x00>;
+	};
+
+	cap_sensor: cap_sensor@11 {
+		compatible = "mediatek, IRQ_SAR-eint";
+		interrupt-parent = <&pio>;
+		interrupts = <0x0b 0x08 0x0b 0x00>;
+		status = "okay";
+	};
+
+	hall_1: hall_1@4 {
+		compatible = "hall,switch";
+		int-gpios = <&pio 0x04 0x00>;
+		status = "okay";
+		interrupt-parent = <&pio>;
+		interrupts = <0x04 0x08 0x04 0x00>;
+	};
+
+	dbmdx-snd-soc-platform {
+		compatible = "dspg,dbmdx-snd-soc-platform";
+	};
+
+	snd-dbmdx-mach-drv {
+		compatible = "dspg,snd-dbmdx-mach-drv";
+	};
+
+	dbmdx {
+		status = "okay";
+		compatible = "dspg,dbmdx-codec";
+		reset_gpio_shared = <0x00>;
+		reset-gpio = <&pio 0x2a 0x00>;
+		sv-gpio = <&pio 0x07 0x00>;
+		wakeup-gpio = <&pio 0x06 0x00>;
+		auto_buffering = <0x01>;
+		multi-interface-support = <0x01>;
+		cd-interfaces = <&dbmd8_interface>;
+		va-interfaces = <0x00 0x00 0x00 0x00>;
+		feature-va_ve;
+		va-firmware-name = "dbmd8_va_fw.bin";
+		va-preboot-firmware-name = "dbmd8_va_preboot_fw.bin";
+		va-config = <
+			0x80000000 0x80000000 0x80000000 0x80290020 0x801b0020 0x80091800 0x80221061 0x80330072
+			0x80230000 0x801a0013 0x80158c8c 0x80104002 0x8aab0040 0x800c7530 0x80240208 0x80250267
+			0x80250200 0x80240200 0x80000000 0x80000000 0x80000000
+		>;
+		va-speeds = <
+			0x00 0x70800 0x00 0xf4240 0x00 0x1e8480 0x00 0x2dc6c0
+			0x00 0x2dc6c0 0x00 0x4c4b40
+		>;
+		va-mic-config = <0x5076 0xa061 0xa68>;
+		va_ve-mic-config = <0x5076 0xa061 0xa093 0x00>;
+		va-mic-mode = <0x04>;
+		master-clk-rate = <0x8000>;
+		default_va_clock = <0x5dc0000>;
+		auto_detection = <0x01>;
+		firmware_id = <0xdbd8>;
+		wakeup_disabled = <0x00>;
+		use_gpio_for_wakeup = <0x01>;
+		send_wakeup_seq = <0x00>;
+		wakeup_set_value = <0x00>;
+		uart_low_speed_enabled = <0x01>;
+		detection_buffer_channels = <0x00>;
+		pcm_streaming_mode = <0x01>;
+		boot_options = <0x220>;
+		send_uevent_on_detection = <0x01>;
+		send_uevent_after_buffering = <0x01>;
+		detection_after_buffering = <0x02>;
+		change_clock_src_options = <0x4003>;
+		va_backlog_length = <0x1f6>;
+		qed_enabled = <0x00>;
+		low_power_mode_disabled = <0x00>;
+		hw_revision = <0x00>;
+		project_sub_type = <0x01>;
+		buffering_timeout = <0x05>;
+		default-streaming-usecase-name = "uc_melon_ga_2mic_aec_48k";
+		alsa_streaming_options = <0x08>;
+		asrp_tx_out_gain = <0x59f>;
+		asrp_vcpf_out_gain = <0x59f>;
+		asrp_rx_out_gain = <0x59f>;
+		asrp_delay = <0x1e>;
+		amodel_options = <0x01>;
+	};
+};
+
+&i2c0 {
+
+	focaltech@38 {
+		compatible = "mediatek,focaltech";
+		reg = <0x38>;
+		status = "okay";
+		focaltech,usb-charger;
+	};
+
+	himax@48 {
+		compatible = "mediatek,cap_touch";
+		reg = <0x48>;
+		status = "okay";
+	};
+};
+
+&i2c3 {
+
+	sx9311@28 {
+		compatible = "mediatek,sx9311";
+		reg = <0x28>;
+		interrupt-parent = <&pio>;
+		interrupts = <11 IRQ_TYPE_LEVEL_LOW 11 0>;
+		status = "okay";
+	};
+
+	ext_buck_lp4@57 {
+		regulator-name = "ext_buck_vdd2";
+		regulator-min-microvolt = <0x493e0>;
+		regulator-max-microvolt = <0x13d620>;
+		vsel_pin = <0x00>;
+	};
+
+	ext_buck_lp4x@50 {
+		regulator-name = "ext_buck_vddq";
+		regulator-min-microvolt = <0x493e0>;
+		regulator-max-microvolt = <0x13d620>;
+		vsel_pin = <0x01>;
+	};
+};
+
+/* DrvGen's generic node otherwise occupies the SX9311's I2C address. */
+&capsensor {
+	status = "disabled";
+};
+
+&i2c5 {
+
+	i2c_lcd_bias@3e {
+		compatible = "mediatek,i2c_lcd_bias";
+		reg = <0x3e>;
+		bias_gpio_enn = <&pio 0xa8 0x00>;
+		bias_gpio_enp = <&pio 0xa7 0x00>;
+		status = "okay";
+	};
+
+	sgm37604a@36 {
+		compatible = "mediatek,sgm37604a";
+		reg = <0x36>;
+		lcm_bl_gpio_enable = <&pio 0x9a 0x00>;
+		status = "okay";
+	};
+
+	ac107@37 {
+		compatible = "ac107_0";
+		reg = <0x37>;
+		status = "okay";
+	};
+};
+
+&i2c6 {
+
+	aw2016@64 {
+		compatible = "awinic,aw2016_led";
+		reg = <0x64>;
+
+		aw2016,red {
+			aw2016,name = "red";
+			aw2016,id = <0x00>;
+			aw2016,imax = <0x02>;
+			aw2016,led-current = <0x03>;
+			aw2016,max-brightness = <0xff>;
+			aw2016,rise-time-ms = <0x06>;
+			aw2016,hold-time-ms = <0x00>;
+			aw2016,fall-time-ms = <0x06>;
+			aw2016,off-time-ms = <0x04>;
+		};
+
+		aw2016,green {
+			aw2016,name = "green";
+			aw2016,id = <0x01>;
+			aw2016,imax = <0x03>;
+			aw2016,led-current = <0x03>;
+			aw2016,max-brightness = <0xff>;
+			aw2016,rise-time-ms = <0x06>;
+			aw2016,hold-time-ms = <0x00>;
+			aw2016,fall-time-ms = <0x06>;
+			aw2016,off-time-ms = <0x04>;
+		};
+
+		aw2016,blue {
+			aw2016,name = "blue";
+			aw2016,id = <0x02>;
+			aw2016,imax = <0x02>;
+			aw2016,led-current = <0x03>;
+			aw2016,max-brightness = <0xff>;
+			aw2016,rise-time-ms = <0x06>;
+			aw2016,hold-time-ms = <0x00>;
+			aw2016,fall-time-ms = <0x06>;
+			aw2016,off-time-ms = <0x04>;
+		};
+	};
+};
+
+&touch {
+	tpd-resolution = <0x4b0 0x780>;
+	use-tpd-button = <0x00>;
+	tpd-key-num = <0x03>;
+	tpd-key-local = <0x8b 0xac 0x9e 0x00>;
+	tpd-key-dim-local = <
+		0x5a 0x373 0x64 0x28 0xe6 0x373 0x64 0x28
+		0x172 0x373 0x64 0x28 0x00 0x00 0x00 0x00
+	>;
+	tpd-max-touch-num = <0x0a>;
+	tpd-filter-enable = <0x00>;
+	tpd-filter-pixel-density = <0x92>;
+	tpd-filter-custom-prameters = <0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00>;
+	tpd-filter-custom-speed = <0x00 0x00 0x00>;
+	pinctrl-names = "default\0state_eint_as_int\0state_eint_output0\0state_eint_output1\0state_rst_output0\0state_rst_output1";
+	pinctrl-0 = <&eint0default>;
+	pinctrl-1 = <&eint>;
+	pinctrl-2 = <&eintoutput0>;
+	pinctrl-3 = <&eintoutput1>;
+	pinctrl-4 = <&rstoutput0>;
+	pinctrl-5 = <&rstoutput1>;
+	status = "okay";
+};
+
+&pio {
+
+	eint0default: eint0default {
+	};
+
+	eint: eint@0 {
+
+		pins_cmd_dat {
+			pinmux = <0xa00>;
+			slew-rate = <0x00>;
+			bias-disable;
+		};
+	};
+
+	eintoutput0: eintoutput0 {
+
+		pins_cmd_dat {
+			pinmux = <0xa00>;
+			slew-rate = <0x01>;
+			output-low;
+		};
+	};
+
+	eintoutput1: eintoutput1 {
+
+		pins_cmd_dat {
+			pinmux = <0xa00>;
+			slew-rate = <0x01>;
+			output-high;
+		};
+	};
+
+	rstoutput0: rstoutput0 {
+
+		pins_cmd_dat {
+			pinmux = <0xac00>;
+			slew-rate = <0x01>;
+			output-low;
+		};
+	};
+
+	rstoutput1: rstoutput1 {
+
+		pins_cmd_dat {
+			pinmux = <0xac00>;
+			slew-rate = <0x01>;
+			output-high;
+		};
+	};
+};
+
+&i2c6 {
+
+	mm8013@55 {
+		status = "ok";
+		compatible = "mediatek,mm8013";
+		reg = <0x55>;
+	};
+};
+
+&charger {
+	algorithm_name = "Basic";
+	chg1_ta_ac_charger_current = <0x1e8480>;
+	chg2_ta_ac_charger_current = <0x1e8480>;
+};
+
+&i2c5 {
+
+	bq25601: bq25601@6b {
+		compatible = "ti,bq25601";
+		reg = <0x6b>;
+		charger_name = "primary_chg";
+		alias_name = "bq25601";
+		status = "okay";
+	};
+
+	wusb3801x@60 {
+		compatible = "mediatek,wusb3801x";
+		reg = <0x60>;
+		wusb3801,irq-gpio = <&pio 0x98 0x00>;
+		wusb3801,init-mode = <0x24>;
+		wusb3801,host-current = <0x01>;
+		wusb3801,drp-toggle-time = <0x28>;
+	};
+
+	fusb301@21 {
+		status = "ok";
+		compatible = "mediatek,fusb301a";
+		reg = <0x21>;
+		fusb301,int-gpio = <&pio 0x98 0x00>;
+	};
+};
+
+&charger {
+	enable_sw_jeita;
+	jeita_temp_above_t4_cv = <0x401640>;
+	jeita_temp_t3_to_t4_cv = <0x401640>;
+	jeita_temp_t2_to_t3_cv = <0x432380>;
+	jeita_temp_t1_to_t2_cv = <0x432380>;
+	jeita_temp_t0_to_t1_cv = <0x432380>;
+	jeita_temp_below_t0_cv = <0x432380>;
+	temp_t4_thres = <0x32>;
+	temp_t4_thres_minus_x_degree = <0x31>;
+	temp_t3_thres = <0x2d>;
+	temp_t3_thres_minus_x_degree = <0x2c>;
+	temp_t2_thres = <0x0f>;
+	temp_t2_thres_plus_x_degree = <0x0e>;
+	temp_t1_thres = <0x00>;
+	temp_t1_thres_plus_x_degree = <0x01>;
+	temp_t0_thres = <0x00>;
+	temp_t0_thres_plus_x_degree = <0x00>;
+	temp_neg_10_thres = <0x00>;
+	battery_cv = <0x432380>;
+	ac_charger_input_current = <0x1f47d0>;
+	non_std_ac_charger_current = <0x17a6b0>;
+	enable_min_charge_temp;
+	min_charge_temp = <0x00>;
+	min_charge_temp_plus_x_degree = <0x01>;
+	max_charge_temp = <0x32>;
+	max_charge_temp_minus_x_degree = <0x31>;
+};
+
+&pio {
+
+	consys_default: consys_default {
+	};
+
+	gpslna: gpslna@0 {
+
+		pins_cmd_dat {
+			pinmux = <0x5b00>;
+			slew-rate = <0x00>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	gpslna_0c: gpslna@1 {
+
+		pins_cmd_dat {
+			pinmux = <0x5b00>;
+			slew-rate = <0x01>;
+			output-high;
+		};
+	};
+
+	gpslna_0d: gpslna@2 {
+
+		pins_cmd_dat {
+			pinmux = <0x5b00>;
+			slew-rate = <0x01>;
+			output-low;
+		};
+	};
+};
+
+&consys {
+	pinctrl-names = "default\0gps_lna_state_init\0gps_lna_state_oh\0gps_lna_state_ol";
+	pinctrl-0 = <&consys_default>;
+	pinctrl-1 = <&gpslna>;
+	pinctrl-2 = <&gpslna_0c>;
+	pinctrl-3 = <&gpslna_0d>;
+	status = "okay";
+};
+
+&accdet {
+	accdet-mic-vol = <0x06>;
+	headset-mode-setting = <0x500 0x500 0x01 0x1f0 0x800 0x800 0x20 0x44>;
+	accdet-plugout-debounce = <0x01>;
+	accdet-mic-mode = <0x01>;
+	headset-eint-level-pol = <0x08>;
+	headset-three-key-threshold = <0x00 0x50 0xdc 0x190>;
+	headset-three-key-threshold-CDD = <0x00 0x79 0xc0 0x258>;
+	headset-four-key-threshold = <0x00 0x3a 0x79 0xc0 0x190>;
+	pinctrl-names = "default\0state_eint_as_int";
+	pinctrl-0 = <&accdetdefault>;
+	pinctrl-1 = <&accdeteint>;
+	status = "okay";
+};
+
+&pio {
+
+	accdetdefault: accdetdefault {
+	};
+
+	accdeteint: accdeteint@0 {
+
+		pins_cmd_dat {
+			pinmux = <0x900>;
+			slew-rate = <0x00>;
+			bias-disable;
+		};
+	};
+};
+
+&irtx_pwm {
+	pinctrl-names = "irtx_gpio_led_default\0irtx_gpio_led_set";
+	pinctrl-0 = <&irtx_gpio_led_def>;
+	pinctrl-1 = <&irtx_gpio_led_set>;
+	status = "okay";
+};
+
+&pio {
+
+	irtx_gpio_led_def: irtx_gpio_led_def@gpio90 {
+
+		pins_cmd_dat {
+			pinmux = <0x5a00>;
+			slew-rate = <0x01>;
+			bias-disable;
+			output-low;
+			input-schmitt-enable = <0x00>;
+		};
+	};
+
+	irtx_gpio_led_set: irtx_gpio_led_set@gpio90 {
+
+		pins_cmd_dat {
+			pinmux = <0x5a02>;
+			slew-rate = <0x01>;
+			output-high;
+		};
+	};
+};
+
+&audgpio {
+	pinctrl-names = "aud_clk_mosi_off\0aud_clk_mosi_on\0aud_clk_miso_off\0aud_clk_miso_on\0aud_dat_mosi_off\0aud_dat_mosi_on\0aud_dat_miso_off\0aud_dat_miso_on\0aud_smartpa_off\0aud_smartpa_on\0extamp-pullhigh\0extamp-pulllow\0extamp2-pullhigh\0extamp2-pulllow\0aud_dbmdx_off\0aud_dbmdx_on\0aud_smartpa_ac107_on\0aud_dbmdx_ac107_on";
+	pinctrl-0 = <&aud_clk_mosi_off>;
+	pinctrl-1 = <&aud_clk_mosi_on>;
+	pinctrl-2 = <&aud_clk_miso_off>;
+	pinctrl-3 = <&aud_clk_miso_on>;
+	pinctrl-4 = <&aud_dat_mosi_off>;
+	pinctrl-5 = <&aud_dat_mosi_on>;
+	pinctrl-6 = <&aud_dat_miso_off>;
+	pinctrl-7 = <&aud_dat_miso_on>;
+	pinctrl-8 = <&aud_pins_smartpa_off>;
+	pinctrl-9 = <&aud_pins_smartpa_on>;
+	pinctrl-10 = <&aud_pins_extamp_on>;
+	pinctrl-11 = <&aud_pins_extamp_off>;
+	pinctrl-12 = <&aud_pins_extamp2_on>;
+	pinctrl-13 = <&aud_pins_extamp2_off>;
+	pinctrl-14 = <&aud_pins_aud_dbmdx_off>;
+	pinctrl-15 = <&aud_pins_aud_dbmdx_on>;
+	pinctrl-16 = <&aud_pins_smartpa_ac107_on>;
+	pinctrl-17 = <&aud_pins_aud_dbmdx_ac107_on>;
+	status = "okay";
+};
+
+&pio {
+
+	aud_clk_mosi_off: aud_clk_mosi_off {
+
+		pins_cmd0_dat {
+			pinmux = <0x8800>;
+		};
+	};
+
+	aud_clk_mosi_on: aud_clk_mosi_on {
+
+		pins_cmd0_dat {
+			pinmux = <0x8801>;
+		};
+	};
+
+	aud_clk_miso_off: aud_clk_miso_off {
+
+		pins_cmd0_dat {
+			pinmux = <0x8c00>;
+		};
+	};
+
+	aud_clk_miso_on: aud_clk_miso_on {
+
+		pins_cmd0_dat {
+			pinmux = <0x8c01>;
+		};
+	};
+
+	aud_dat_mosi_off: aud_dat_mosi_off {
+
+		pins_cmd1_dat {
+			pinmux = <0x8a00>;
+			input-enable;
+			slew-rate = <0x00>;
+			bias-disable;
+		};
+
+		pins_cmd2_dat {
+			pinmux = <0x8b00>;
+			input-enable;
+			slew-rate = <0x00>;
+			bias-disable;
+		};
+	};
+
+	aud_dat_mosi_on: aud_dat_mosi_on {
+
+		pins_cmd1_dat {
+			pinmux = <0x8a01>;
+		};
+
+		pins_cmd2_dat {
+			pinmux = <0x8b01>;
+		};
+	};
+
+	aud_dat_miso_off: aud_dat_miso_off {
+
+		pins_cmd1_dat {
+			pinmux = <0x8e00>;
+			input-enable;
+			slew-rate = <0x00>;
+			bias-disable;
+		};
+
+		pins_cmd2_dat {
+			pinmux = <0x8f00>;
+			input-enable;
+			slew-rate = <0x00>;
+			bias-disable;
+		};
+	};
+
+	aud_dat_miso_on: aud_dat_miso_on {
+
+		pins_cmd1_dat {
+			pinmux = <0x8e01>;
+		};
+
+		pins_cmd2_dat {
+			pinmux = <0x8f01>;
+		};
+	};
+
+	aud_pins_smartpa_off: aud_pins_smartpa_off {
+
+		pins_cmd0_dat {
+			pinmux = <0x1100>;
+		};
+
+		pins_cmd1_dat {
+			pinmux = <0x1200>;
+		};
+
+		pins_cmd2_dat {
+			pinmux = <0x1300>;
+		};
+
+		pins_cmd3_dat {
+			pinmux = <0x1400>;
+		};
+	};
+
+	aud_pins_smartpa_on: aud_pins_smartpa_on {
+
+		pins_cmd0_dat {
+			pinmux = <0x1106>;
+		};
+
+		pins_cmd1_dat {
+			pinmux = <0x1206>;
+		};
+
+		pins_cmd2_dat {
+			pinmux = <0x1306>;
+		};
+
+		pins_cmd3_dat {
+			pinmux = <0x1406>;
+		};
+	};
+
+	aud_pins_smartpa_ac107_on: aud_pins_smartpa_ac107_on {
+
+		pins_cmd0_dat {
+			pinmux = <0x1106>;
+		};
+
+		pins_cmd1_dat {
+			pinmux = <0x1206>;
+		};
+
+		pins_cmd2_dat {
+			pinmux = <0x1306>;
+		};
+
+		pins_cmd3_dat {
+			pinmux = <0x1400>;
+			input-enable;
+			slew-rate = <0x00>;
+			bias-disable;
+		};
+	};
+
+	aud_pins_extamp_off: aud_pins_extamp_off {
+
+		pins_cmd_dat {
+			pinmux = <0x9700>;
+			slew-rate = <0x01>;
+			output-low;
+		};
+	};
+
+	aud_pins_extamp_on: aud_pins_extamp_on {
+
+		pins_cmd_dat {
+			pinmux = <0x9700>;
+			slew-rate = <0x01>;
+			output-high;
+		};
+	};
+
+	aud_pins_extamp2_off: aud_pins_extamp2_off {
+
+		pins_cmd_dat {
+			pinmux = <0x9900>;
+			slew-rate = <0x01>;
+			output-low;
+		};
+	};
+
+	aud_pins_extamp2_on: aud_pins_extamp2_on {
+
+		pins_cmd_dat {
+			pinmux = <0x9900>;
+			slew-rate = <0x01>;
+			output-high;
+		};
+	};
+
+	aud_pins_aud_dbmdx_off: aud_pins_aud_dbmdx_off {
+
+		pins_cmd0_dat {
+			pinmux = <0x1100>;
+		};
+
+		pins_cmd1_dat {
+			pinmux = <0x1200>;
+		};
+
+		pins_cmd2_dat {
+			pinmux = <0x1300>;
+		};
+
+		pins_cmd3_dat {
+			pinmux = <0x1400>;
+		};
+	};
+
+	aud_pins_aud_dbmdx_on: aud_pins_aud_dbmdx_on {
+
+		pins_cmd0_dat {
+			pinmux = <0x1106>;
+		};
+
+		pins_cmd1_dat {
+			pinmux = <0x1206>;
+		};
+
+		pins_cmd2_dat {
+			pinmux = <0x1306>;
+		};
+
+		pins_cmd3_dat {
+			pinmux = <0x1406>;
+		};
+	};
+
+	aud_pins_aud_dbmdx_ac107_on: aud_pins_aud_dbmdx_ac107_on {
+
+		pins_cmd0_dat {
+			pinmux = <0x1106>;
+		};
+
+		pins_cmd1_dat {
+			pinmux = <0x1206>;
+		};
+
+		pins_cmd2_dat {
+			pinmux = <0x1306>;
+		};
+
+		pins_cmd3_dat {
+			pinmux = <0x1400>;
+			input-enable;
+			slew-rate = <0x00>;
+			bias-disable;
+		};
+	};
+};
+
+&spi3 {
+	status = "okay";
+
+	dbmd8_interface: dbmd8_interface@0x0 {
+		compatible = "dspg,dbmd8-spi";
+		reg = <0x00>;
+		spi-max-frequency = <0x7735940>;
+		read-chunk-size = <0x2000>;
+		write-chunk-size = <0x8000>;
+		dma_min_buffer_size = <0x00>;
+	};
+};
+
+&odm {
+
+	flashlights_sywt78: flashlights_sywt78 {
+		compatible = "mediatek,flashlights_sywt78";
+		pinctrl-names = "default\0flash_low\0flash_high\0torch_low\0torch_high";
+		pinctrl-0 = <&flash_default>;
+		pinctrl-1 = <&flash_en_pin0>;
+		pinctrl-2 = <&flash_en_pin1>;
+		pinctrl-3 = <&torch_en_pin0>;
+		pinctrl-4 = <&torch_en_pin1>;
+		status = "okay";
+	};
+};
+
+&pio {
+
+	flash_default: flash_default {
+	};
+
+	flash_en_pin0: flash_en_pin0 {
+
+		pins_cmd_dat {
+			pinmux = <0xaf00>;
+			slew-rate = <0x01>;
+			output-low;
+		};
+	};
+
+	flash_en_pin1: flash_en_pin1 {
+
+		pins_cmd_dat {
+			pinmux = <0xaf00>;
+			slew-rate = <0x01>;
+			output-high;
+		};
+	};
+
+	torch_en_pin0: torch_en_pin0 {
+
+		pins_cmd_dat {
+			pinmux = <0xb000>;
+			slew-rate = <0x01>;
+			output-low;
+		};
+	};
+
+	torch_en_pin1: torch_en_pin1 {
+
+		pins_cmd_dat {
+			pinmux = <0xb000>;
+			slew-rate = <0x01>;
+			output-high;
+		};
+	};
+};
+
+&pio {
+
+	lcm_rst_out1_gpio: lcm_rst_out1_gpio {
+
+		pins_cmd_dat {
+			pinmux = <0x2d00>;
+			slew-rate = <0x01>;
+			output-high;
+		};
+	};
+
+	lcm_rst_out0_gpio: lcm_rst_out0_gpio {
+
+		pins_cmd_dat {
+			pinmux = <0x2d00>;
+			slew-rate = <0x01>;
+			output-low;
+		};
+	};
+};
+
+&mtkfb {
+	pinctrl-names = "lcm_rst_out1_gpio\0lcm_rst_out0_gpio";
+	pinctrl-0 = <&lcm_rst_out1_gpio>;
+	pinctrl-1 = <&lcm_rst_out0_gpio>;
+	status = "okay";
+};
+
+/*
+ * The X606F has no MT6370; the bq25601 has no BC1.2 detection. As on the
+ * 4.9 kernel, the MT6357 PMIC detects the charger type, and musb only
+ * enables the gadget once this supply reports an SDP/CDP host.
+ */
+&mtk_charger_type {
+	bc12_active = <1>;
+	mediatek,ac-usb-supply-parent = <&android10_charger>;
+};
+
+/* Stock powers Vldo28 through MAINAF while probing the rear sensor. */
+&camera_af_hw_node {
+	camaf_m1_pmic-supply = <&mt_pmic_vldo28_ldo_reg>;
+};
+
+&mtk_gauge {
+	charger = <&mtk_charger_type>;
+	mediatek,battery-supply-parent = <&android10_battery>;
+};
+
+&{/} {
+	android10_charger: mt_charger {
+		compatible = "mediatek,ac-usb-supply-parent";
+	};
+
+	android10_battery: battery {
+		compatible = "mediatek,battery-supply-parent";
+	};
+};
+
+&charger {
+	gauge = <&android10_battery>;
+	charger = <&mtk_charger_type>;
+};
+
+/* Charger algorithms need battery properties, not the raw PMIC gauge. */
+&pe {
+	gauge = <&android10_battery>;
+};
+
+&pe2 {
+	gauge = <&android10_battery>;
+};
+
+&pe4 {
+	gauge = <&android10_battery>;
+};
+
+&pdc {
+	gauge = <&android10_battery>;
+};
+
+&usb {
+	charger = <&mtk_charger_type>;
+};
+
+/* The 4.19 keypad driver requires a default state; stock uses KPCOL0. */
+&keypad {
+	pinctrl-names = "default";
+	pinctrl-0 = <&kpd_pins_default>;
+};
+
+&pio {
+	kpd_pins_default: kpdgpiodefault {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO93__FUNC_KPCOL0>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_10>;
+		};
+	};
+};
+
+#include "achilles6_row_wifi_cust.dtsi"
+#include "achilles6_row_wifi_battery.dtsi"
+
+/*End of this file, DO NOT ADD ANYTHING HERE*/
