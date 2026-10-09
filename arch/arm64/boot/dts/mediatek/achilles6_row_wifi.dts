@@ -1033,6 +1033,11 @@
 	};
 };
 
+/* The reset-only watchdog driver does not consume an interrupt. */
+&toprgu {
+	interrupts;
+};
+
 #include "achilles6_row_wifi_cust.dtsi"
 #include "achilles6_row_wifi_battery.dtsi"
 
