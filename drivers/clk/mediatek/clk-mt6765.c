@@ -1415,6 +1415,36 @@ static void __exit clk_mt6765_exit(void)
 }
 
 postcore_initcall_sync(clk_mt6765_init);
+
+/*
+ * The 4.9 kernel applied the APMIXED PLL mode setup below from
+ * CLK_OF_DECLARE, i.e. before the secondary CPUs were started. Here it
+ * only happens in the platform probe, after smp_init(). With the
+ * achilles6 (Android 10) ATF the second cluster (CPU4-7) then never
+ * comes online ("CPU4: failed to come online"), and MediaTek's hps
+ * hotplug thread later wedges CPU0 retrying it. Apply the same writes
+ * before SMP bring-up.
+ */
+static int __init clk_mt6765_pll_mode_early(void)
+{
+	struct device_node *node;
+	void __iomem *base;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6765-apmixedsys");
+	if (!node)
+		return 0;
+	base = of_iomap(node, 0);
+	of_node_put(node);
+	if (!base)
+		return -ENOMEM;
+
+	writel(readl(base + 0x0C) & 0xFFFFFFE1, base + 0x0C);	/* AP_PLL_CON3 */
+	writel(readl(base + 0x44) & 0x01041041, base + 0x44);	/* PLLON_CON0 */
+	writel(readl(base + 0x48) & 0x01041041, base + 0x48);	/* PLLON_CON1 */
+	iounmap(base);
+	return 0;
+}
+early_initcall(clk_mt6765_pll_mode_early);
 module_exit(clk_mt6765_exit);
 
 MODULE_LICENSE("GPL");
