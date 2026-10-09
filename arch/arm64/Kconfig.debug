@@ -16,6 +16,42 @@ config ARM64_PTDUMP_DEBUGFS
 
 	  If in doubt, say N.
 
+config ARM64_BOOT_CRUMBS
+	bool "Record early boot progress in a DRAM breadcrumb array"
+	help
+	  Bring-up aid for boards without a usable UART. head.S and early C
+	  code store progress markers in boot_crumbs[] (in .data, so it is
+	  not cleared with .bss) and clean each store to the point of
+	  coherency, so the array survives a watchdog reset. A debugger or
+	  download agent can then read it at the physical address of
+	  boot_crumbs (System.map, image loaded at the bootloader's kernel
+	  address). Slot 15 holds the address of the initcall in progress.
+
+	  If unsure, say N.
+
+config ARM64_BOOT_CRUMBS_RESTART_SECS
+	int "Restart if boot is not confirmed within this many seconds"
+	depends on ARM64_BOOT_CRUMBS
+	default 0
+	help
+	  Bring-up aid for unattended test cycles: if non-zero, the kernel
+	  cleans the printk buffer to DRAM and restarts this many seconds
+	  after boot, unless userspace disarms the timer by writing 1 to
+	  /sys/module/boot_crumbs/parameters/disarm. A test kernel that
+	  hangs (for example on the boot logo, with the watchdog still
+	  being kicked) then comes back to the bootloader by itself.
+
+config ARM64_BOOT_CRUMBS_WDT_BASE
+	hex "MediaTek TOPRGU base used for the boot-crumbs restart"
+	depends on ARM64_BOOT_CRUMBS_RESTART_SECS != 0
+	default 0x0
+	help
+	  Physical base of a MediaTek TOPRGU watchdog (0x10007000 on MT6765).
+	  If set, the restart timer resets the SoC by writing the watchdog
+	  registers directly instead of going through emergency_restart(),
+	  which also works when workqueues or the restart notifiers are
+	  stuck. 0 uses emergency_restart().
+
 config PID_IN_CONTEXTIDR
 	bool "Write the current PID to the CONTEXTIDR register"
 	help

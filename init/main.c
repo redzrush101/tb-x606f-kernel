@@ -12,6 +12,7 @@
 #define DEBUG		/* Enable initcall_debug */
 
 #include <linux/types.h>
+#include <linux/boot_crumbs.h>
 #include <linux/extable.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
@@ -558,6 +559,7 @@ asmlinkage __visible void __init start_kernel(void)
 	char *command_line;
 	char *after_dashes;
 
+	boot_crumb_mark(6);
 	set_task_stack_end_magic(&init_task);
 	smp_setup_processor_id();
 	debug_objects_early_init();
@@ -691,6 +693,7 @@ asmlinkage __visible void __init start_kernel(void)
 	 * this. But we do want output early, in case something goes wrong.
 	 */
 	console_init();
+	boot_crumb_mark(10);
 	if (panic_later)
 		panic("Too many boot %s vars at `%s'", panic_later,
 		      panic_param);
@@ -767,6 +770,7 @@ asmlinkage __visible void __init start_kernel(void)
 	}
 
 	/* Do the rest non-__init'ed, we're now alive */
+	boot_crumb_mark(11);
 	rest_init();
 
 	prevent_tail_call_optimization();
@@ -920,6 +924,7 @@ int __init_or_module do_one_initcall(initcall_t fn)
 
 	do_trace_initcall_start(fn);
 	BOOTPROF_TIME_LOG_START(ts);
+	boot_crumb(BOOT_CRUMB_INITCALL, (u64)fn);
 	ret = fn();
 	BOOTPROF_TIME_LOG_END(ts);
 	bootprof_initcall(fn, ts);
@@ -1105,6 +1110,7 @@ static int __ref kernel_init(void *unused)
 	async_synchronize_full();
 	ftrace_free_init_mem();
 	jump_label_invalidate_initmem();
+	boot_crumb_mark(12);
 	free_initmem();
 	mark_readonly();
 
@@ -1121,6 +1127,7 @@ static int __ref kernel_init(void *unused)
 
 	bootprof_log_boot("Kernel_init_done");
 
+	boot_crumb_mark(13);
 	if (ramdisk_execute_command) {
 		ret = run_init_process(ramdisk_execute_command);
 		if (!ret)

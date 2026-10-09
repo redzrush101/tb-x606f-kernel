@@ -116,13 +116,39 @@ pe_header:
 	 *  x24        __primary_switch() .. relocate_kernel()
 	 *                                        current RELR displacement
 	 */
+/*
+ * boot_crumb idx, reg: store reg in boot_crumbs[idx] and clean it to the
+ * PoC. Clobbers x16 and x17 only; usable with the MMU on or off.
+ */
+	.macro	boot_crumb, idx, reg
+#ifdef CONFIG_ARM64_BOOT_CRUMBS
+	adr_l	x16, boot_crumbs
+	mov	x17, \reg
+	str	x17, [x16, #(\idx * 8)]
+	add	x16, x16, #(\idx * 8)
+	dc	civac, x16
+	dsb	sy
+#endif
+	.endm
+
+	.macro	boot_crumb_mark, idx
+#ifdef CONFIG_ARM64_BOOT_CRUMBS
+	mov	x17, #0xc0de
+	movk	x17, #\idx, lsl #16
+	boot_crumb \idx, x17
+#endif
+	.endm
+
 ENTRY(stext)
+	boot_crumb 0, x0			// FDT pointer from the bootloader
 	bl	preserve_boot_args
 	bl	el2_setup			// Drop to EL1, w0=cpu_boot_mode
+	boot_crumb 1, x0			// boot mode (0xe11 / 0xe12)
 	adrp	x23, __PHYS_OFFSET
 	and	x23, x23, MIN_KIMG_ALIGN - 1	// KASLR offset, defaults to 0
 	bl	set_cpu_boot_mode_flag
 	bl	__create_page_tables
+	boot_crumb_mark 2
 	/*
 	 * The following calls CPU setup code, see arch/arm64/mm/proc.S for
 	 * details.
@@ -130,6 +156,7 @@ ENTRY(stext)
 	 * the TCR will have been set.
 	 */
 	bl	__cpu_setup			// initialise processor
+	boot_crumb_mark 3
 	b	__primary_switch
 ENDPROC(stext)
 
@@ -408,6 +435,7 @@ ENDPROC(__create_page_tables)
  *   x0 = __PHYS_OFFSET
  */
 __primary_switched:
+	boot_crumb_mark 4			// MMU on, running at the link address
 	adrp	x4, init_thread_union
 	add	sp, x4, #THREAD_SIZE
 	adr_l	x5, init_task
@@ -437,6 +465,7 @@ __primary_switched:
 	sub	x2, x2, x0
 	bl	__pi_memset
 	dsb	ishst				// Make zero page visible to PTW
+	boot_crumb_mark 5
 
 #ifdef CONFIG_KASAN
 	bl	kasan_early_init

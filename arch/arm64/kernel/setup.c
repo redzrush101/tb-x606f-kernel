@@ -18,6 +18,7 @@
  */
 
 #include <linux/acpi.h>
+#include <linux/boot_crumbs.h>
 #include <linux/export.h>
 #include <linux/kernel.h>
 #include <linux/stddef.h>
@@ -309,7 +310,9 @@ void __init setup_arch(char **cmdline_p)
 	early_fixmap_init();
 	early_ioremap_init();
 
+	boot_crumb_mark(7);
 	setup_machine_fdt(__fdt_pointer);
+	boot_crumb_mark(8);
 
 	/*
 	 * Initialise the static keys early as they may be enabled by the
@@ -336,6 +339,7 @@ void __init setup_arch(char **cmdline_p)
 	arm64_memblock_init();
 
 	paging_init();
+	boot_crumb_mark(9);
 
 	acpi_table_upgrade();
 

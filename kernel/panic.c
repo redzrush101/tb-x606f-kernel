@@ -9,6 +9,7 @@
  * to indicate a major problem.
  */
 #include <linux/debug_locks.h>
+#include <linux/boot_crumbs.h>
 #include <linux/sched/debug.h>
 #include <linux/interrupt.h>
 #include <linux/kmsg_dump.h>
@@ -143,6 +144,8 @@ void panic(const char *fmt, ...)
 	int state = 0;
 	int old_cpu, this_cpu;
 	bool _crash_kexec_post_notifiers = crash_kexec_post_notifiers;
+
+	boot_crumb(14, (u64)__builtin_return_address(0));
 
 	/*
 	 * Disable local interrupts. This will prevent panic_smp_self_stop
