@@ -4,8 +4,29 @@
  */
 
 #include <linux/arm-smccc.h>
+#include <linux/errno.h>
+#include <linux/export.h>
+#include <linux/soc/mediatek/mtk-vcorefs.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <mtk_spm_internal.h>
+
+int mtk_spm_vcorefs_call(u32 cmd, u32 arg1, u32 arg2)
+{
+	struct arm_smccc_res res;
+	unsigned long flags;
+
+	spin_lock_irqsave(&__spm_lock, flags);
+	arm_smccc_smc(MTK_SIP_KERNEL_SPM_VCOREFS_ARGS, cmd, arg1, arg2,
+		      0, 0, 0, 0, &res);
+	spin_unlock_irqrestore(&__spm_lock, flags);
+
+	if (res.a0) {
+		pr_err("SPM VCOREFS command %u failed: %#lx\n", cmd, res.a0);
+		return -EIO;
+	}
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_spm_vcorefs_call);
 
 static void spm_dvfsfw_init(void)
 {

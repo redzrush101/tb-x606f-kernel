@@ -11,3 +11,4 @@ obj-$(CONFIG_MTK_MMDVFS) += mtk-mmdvfs.o
 obj-$(CONFIG_MTK_LPM) += mtk-lpm.o
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
+ccflags-$(CONFIG_MACH_MT6765) += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)

@@ -4,6 +4,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/of.h>
 #include <linux/arm-smccc.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <mt-plat/mtk_devinfo.h>
@@ -17,6 +18,14 @@ static int __init dvfsrc_opp_init(void)
 #if IS_ENABLED(CONFIG_MTK_DRAMC_LEGACY)
 	int i;
 	struct arm_smccc_res ares;
+	struct device_node *node;
+	bool legacy;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6765-dvfsrc");
+	legacy = of_property_read_bool(node, "mediatek,legacy-vcorefs");
+	of_node_put(node);
+	if (legacy)
+		return 0;
 
 	for (i = 0; i < NUM_DRAM_OPP; i++) {
 		arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL,

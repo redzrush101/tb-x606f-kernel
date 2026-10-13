@@ -15,6 +15,11 @@
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
 #include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#if IS_ENABLED(CONFIG_MACH_MT6765) && IS_ENABLED(CONFIG_MTK_DRAMC_LEGACY)
+#include <linux/soc/mediatek/mtk-vcorefs.h>
+#include <mt-plat/mtk_devinfo.h>
+#include <mtk_dramc.h>
+#endif
 #include "mtk-scpsys.h"
 #include <linux/regulator/consumer.h>
 #ifdef CONFIG_MTK_AEE_FEATURE
@@ -936,12 +941,96 @@ static void dvfsrc_init_settings(struct mtk_dvfsrc *dvfsrc)
 		writel(setting[i].val, dvfsrc->regs + setting[i].offset);
 }
 
+static int mt6765_dvfsrc_legacy_init(struct mtk_dvfsrc *dvfsrc)
+{
+#if IS_ENABLED(CONFIG_MACH_MT6765) && IS_ENABLED(CONFIG_MTK_DRAMC_LEGACY)
+	static const u32 pwrap_cmd[] = { 4, 3, 2, 0 };
+	u32 ptpod0 = get_devinfo_with_index(50);
+	u32 ptpod10 = get_devinfo_with_index(60);
+	u32 uv[4], vb, spm_flags = BIT(10);
+	int ddr_type = get_ddr_type();
+	int ddr_freq = dram_steps_freq(0);
+	u32 *table;
+	int i, ret;
+
+	if (!of_device_is_compatible(dvfsrc->dev->of_node,
+				     "mediatek,mt6765-dvfsrc") ||
+	    dvfsrc->vmode || (dvfsrc->flag & ~0x3))
+		return -EINVAL;
+
+	if (ddr_type == TYPE_LPDDR4 && ddr_freq == 3200)
+		dvfsrc->dram_type = 0;
+	else if (ddr_type == TYPE_LPDDR4X && ddr_freq == 3200)
+		dvfsrc->dram_type = 1;
+	else if (ddr_type == TYPE_LPDDR3)
+		dvfsrc->dram_type = 2;
+	else if (ddr_type == TYPE_LPDDR4 && ddr_freq == 2400)
+		dvfsrc->dram_type = 3;
+	else if (ddr_type == TYPE_LPDDR4X && ddr_freq == 2400)
+		dvfsrc->dram_type = 4;
+	else
+		return -EINVAL;
+
+	/* Stock MT6765 normal-flavor calibration, in ascending gear order. */
+	vb = ptpod0 && ptpod0 != 0xff00 && !(ptpod10 & GENMASK(9, 4));
+	uv[0] = 650000 + vb * 25000;
+	vb = min((ptpod10 >> 10) & 0x3, 2U);
+	uv[1] = max(700000 - vb * 25000, uv[0]);
+	uv[2] = 700000;
+	uv[3] = 800000;
+	if (get_devinfo_with_index(132) & BIT(0)) {
+		uv[0] = uv[2];
+		uv[1] = uv[2];
+	}
+
+	table = kmemdup(uv, sizeof(uv), GFP_KERNEL);
+	if (!table)
+		return -ENOMEM;
+
+	for (i = 0; i < ARRAY_SIZE(uv); i++) {
+		ret = mtk_spm_vcorefs_call(3, pwrap_cmd[i],
+					 DIV_ROUND_UP(uv[i] - 518750, 6250));
+		if (ret)
+			goto free_table;
+	}
+
+	/* Restore the controller before starting the common SPM scenario. */
+	dvfsrc_init_settings(dvfsrc);
+	ret = mtk_spm_vcorefs_call(0, 0, 0);
+	if (ret)
+		goto free_table;
+	if (dvfsrc->flag & BIT(0))
+		spm_flags |= BIT(3);
+	if (dvfsrc->flag & BIT(1))
+		spm_flags |= BIT(4);
+	ret = mtk_spm_vcorefs_call(1, spm_flags, 0);
+	if (ret)
+		goto free_table;
+
+	vopp_uv_tlb = table;
+	num_vopp = ARRAY_SIZE(uv);
+	dev_info(dvfsrc->dev, "legacy vcorefs, dram_type: %d\n",
+		 dvfsrc->dram_type);
+	for (i = 0; i < num_vopp; i++)
+		dev_info(dvfsrc->dev, "dvfsrc vopp[%d] = %d\n", i,
+			 mtk_dvfsrc_vcore_uv_table(i));
+	return 0;
+
+free_table:
+	kfree(table);
+	return ret;
+#else
+	return -EOPNOTSUPP;
+#endif
+}
+
 static int mtk_dvfsrc_probe(struct platform_device *pdev)
 {
 	struct arm_smccc_res ares;
 	struct resource *res;
 	struct mtk_dvfsrc *dvfsrc;
 	struct device_node *node = pdev->dev.of_node;
+	bool legacy_vcorefs;
 	int i;
 	int ret;
 
@@ -999,33 +1088,43 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 	mutex_init(&dvfsrc->lock);
 	mutex_init(&dvfsrc->sw_req_lock);
 
-	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_GET_SPM_INFO,
-		0, 0, 0, 0, 0, 0,
-		&ares);
+	legacy_vcorefs = of_property_read_bool(node, "mediatek,legacy-vcorefs");
+	if (legacy_vcorefs) {
+		ret = mt6765_dvfsrc_legacy_init(dvfsrc);
+		if (ret) {
+			dev_err(dvfsrc->dev, "legacy vcorefs init failed: %d\n", ret);
+			return ret;
+		}
+	} else {
+		arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_GET_SPM_INFO,
+			0, 0, 0, 0, 0, 0,
+			&ares);
 
-	if (!ares.a0) {
-		if (ares.a1 < dvfsrc->dvd->num_setting)
-			dvfsrc->dram_type = ares.a1;
+		if (!ares.a0) {
+			if (ares.a1 < dvfsrc->dvd->num_setting)
+				dvfsrc->dram_type = ares.a1;
+			else
+				return -EINVAL;
+		} else
+			return -ENODEV;
+
+		dev_info(dvfsrc->dev, "dram_type: %d\n", dvfsrc->dram_type);
+		arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_SPM_DVFSRC_INIT,
+			dvfsrc->flag, dvfsrc->vmode, 0, 0, 0, 0,
+			&ares);
+
+		if (!ares.a0)
+			dvfsrc_init_settings(dvfsrc);
 		else
-			return -EINVAL;
-	} else
-		return -ENODEV;
-
-	dev_info(dvfsrc->dev, "dram_type: %d\n", dvfsrc->dram_type);
-	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_SPM_DVFSRC_INIT,
-		dvfsrc->flag, dvfsrc->vmode, 0, 0, 0, 0,
-		&ares);
-
-	if (!ares.a0)
-		dvfsrc_init_settings(dvfsrc);
-	else
-		dev_info(dvfsrc->dev, "spm init fails: %lx\n", ares.a0);
+			dev_info(dvfsrc->dev, "spm init fails: %lx\n", ares.a0);
+	}
 
 	platform_set_drvdata(pdev, dvfsrc);
 	pstate_notifier_register(dvfsrc);
 
-	if (HAS_CAP(dvfsrc->dvd->caps, DVFSRC_CAP_V_OPP_INIT) ||
-		HAS_CAP(dvfsrc->dvd->caps, DVFSRC_CAP_V_CHECKER))
+	if (!legacy_vcorefs &&
+	    (HAS_CAP(dvfsrc->dvd->caps, DVFSRC_CAP_V_OPP_INIT) ||
+	     HAS_CAP(dvfsrc->dvd->caps, DVFSRC_CAP_V_CHECKER)))
 		mtk_dvfsrc_setup_vopp_table(dvfsrc);
 
 	ret = devm_of_platform_populate(&pdev->dev);
