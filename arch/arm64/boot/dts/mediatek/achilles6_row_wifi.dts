@@ -1045,6 +1045,10 @@
 	status = "disabled";
 };
 
+&dvfsrc {
+	mediatek,legacy-vcorefs;
+};
+
 #include "achilles6_row_wifi_cust.dtsi"
 #include "achilles6_row_wifi_battery.dtsi"
 
