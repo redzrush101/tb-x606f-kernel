@@ -9,6 +9,7 @@ Required Properties:
 - compatible: Should be one of the following
 	- "mediatek,mt8183-dvfsrc": For MT8183 SoC
 	- "mediatek,mt6779-dvfsrc": For MT6779 SoC
+	- "mediatek,mt6765-dvfsrc": For MT6765 SoC
 - reg: Address range of the DVFSRC unit
 - clock-names: Must include the following entries:
 	"dvfsrc": DVFSRC module clock
@@ -19,6 +20,12 @@ Required Properties:
 	bandwidth to it. shall contain only one of the following:
 	"mediatek,dvfsrc-mt8183-emi"
 	"mediatek,dvfsrc-mt6779-emi"
+
+Optional Properties:
+- mediatek,legacy-vcorefs: Select the older SPM VCOREFS secure-call protocol
+  on MT6765 with normal-flavor voltage calibration. DRAM type/frequency and
+  efuses supply the firmware selection and voltage table. Alternate voltage
+  modes are not supported by this protocol.
 
 Example:
 
