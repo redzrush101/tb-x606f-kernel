@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Replace only the kernel in a stock Android boot-v2 image, then renew AVB."""
+import gzip
 import hashlib
 import json
 from pathlib import Path
@@ -72,6 +73,8 @@ def main(stock_path, kernel_path, output_path):
             stock = archive.read(matches[0])
     else:
         stock = stock_path.read_bytes()
+        if stock[:2] == b'\x1f\x8b':
+            stock = gzip.decompress(stock)
     parts, original = unpack(stock)
     page = original['page_size']
     _, appended_dtb, _ = split_gzip(parts['kernel'])

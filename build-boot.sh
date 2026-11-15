@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Run from any directory; only Bash and Podman or Docker are needed on the host.
 set -euo pipefail
-if [[ $# != 1 || $1 == --help || $1 == -h ]]; then
-    echo "Usage: $0 /path/to/stock-firmware.zip-or-boot.img"
+if [[ $# -gt 1 || ${1:-} == --help || ${1:-} == -h ]]; then
+    echo "Usage: $0 [stock-firmware.zip-or-boot.img]"
+    echo "With no argument, uses the stock boot template included in this repo."
     echo "Environment: ENGINE=podman|docker JOBS=8 DEFCONFIG=amar_row_wifi_defconfig"
-    exit "$(( $# == 1 ? 0 : 2 ))"
+    exit "$(( $# > 1 ? 2 : 0 ))"
 fi
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-input=$(realpath -- "$1")
+input=$(realpath -- "${1:-$root/boot-template/stock-boot.img.gz}")
 [[ -f $input ]] || { echo "Stock image not found: $input" >&2; exit 1; }
 engine=${ENGINE:-}
 if [[ -z $engine ]]; then

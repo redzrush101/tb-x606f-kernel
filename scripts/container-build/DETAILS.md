@@ -4,7 +4,9 @@ For the build commands, see [BUILD-BOOT.md](../../BUILD-BOOT.md).
 
 ## What matches the supplied stock firmware
 
-The packer reads the actual stock header; it does not guess mkbootimg defaults.
+By default, the build uses `boot-template/stock-boot.img.gz`, included in this
+repository. No separate firmware download is needed. The packer reads the
+actual stock header; it does not guess mkbootimg defaults.
 For `TB-X606F_S301068_230919_BMP_SVC.zip`, the extracted stock boot SHA-256 is
 `aef0b80c7f867c492718db9f3b549f23ff182d3bd816bcaea059f0b511e4bafc`.
 

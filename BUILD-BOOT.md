@@ -17,36 +17,23 @@ git clone --branch x606f-android10-port https://github.com/redzrush101/tb-x606f-
 cd tb-x606f-kernel
 ```
 
-The build scripts are included. You do not need a separate build-kit download.
+The build scripts and stock boot template are included. You do not need to
+download the stock firmware or a separate build kit.
 
-## 2. Have the stock firmware ready
-
-Use your stock `TB-X606F_S301068_230919_BMP_SVC.zip`. You can leave it zipped.
-An unmodified `boot.img` extracted from that firmware also works.
-
-The script needs this file so it can keep the stock ramdisk, device trees and
-boot settings while replacing the kernel.
-
-## 3. Start the build
-
-If the firmware ZIP is in your Downloads folder, run:
+## 2. Start the build
 
 ```sh
-./build-boot.sh "$HOME/Downloads/TB-X606F_S301068_230919_BMP_SVC.zip"
+./build-boot.sh
 ```
 
-If it is somewhere else, replace the path with its actual location. For an
-extracted stock image, use:
-
-```sh
-./build-boot.sh /path/to/stock/boot.img
-```
+That's it. The script builds the kernel and packs it using the included Lenovo
+stock boot template, preserving its ramdisk, device trees and boot settings.
 
 The script chooses Podman if installed, otherwise Docker. The first run takes
 longer because it downloads the build tools. Leave the terminal open until you
 see `Built /src/out-container/boot.img`.
 
-## 4. Find your image
+## 3. Find your image
 
 Your new image is here, inside the cloned repository:
 
@@ -71,17 +58,24 @@ files; it does not flash anything onto your tablet.
 - **The PC runs out of memory:** use fewer compiler jobs:
 
   ```sh
-  JOBS=2 ./build-boot.sh "$HOME/Downloads/TB-X606F_S301068_230919_BMP_SVC.zip"
+  JOBS=2 ./build-boot.sh
   ```
 
 - **You want to choose Docker explicitly:**
 
   ```sh
-  ENGINE=docker ./build-boot.sh "$HOME/Downloads/TB-X606F_S301068_230919_BMP_SVC.zip"
+  ENGINE=docker ./build-boot.sh
   ```
 
 - **Compilation fails:** read `out-container/build.log`. If asking for help,
   include the first error and the lines around it.
+
+If you want to use your own stock firmware instead of the included template,
+you can pass its ZIP or extracted boot image as an optional argument:
+
+```sh
+./build-boot.sh /path/to/stock/boot.img
+```
 
 For the exact stock offsets, compiler information and known compatibility
 limits, see [the technical details](scripts/container-build/DETAILS.md).
