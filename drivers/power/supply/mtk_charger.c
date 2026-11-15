@@ -1422,7 +1422,7 @@ stop_charging:
 
 	info->can_charging = charging;
 }
-bool check_dock_charger()
+bool check_dock_charger(void)
 {
 	union power_supply_propval reta = {0,};
 	struct power_supply *ext_psy = power_supply_get_by_name("customer");

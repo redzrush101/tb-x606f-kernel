@@ -53,7 +53,7 @@ void __attribute__((weak)) usb_dpdm_pulldown(bool enable)
 {
 	pr_notice("%s is not defined\n", __func__);
 }
-bool dock_charger()
+bool dock_charger(void)
 {
 	union power_supply_propval reta = {0,};
 	struct power_supply *ext_psy = power_supply_get_by_name("customer");

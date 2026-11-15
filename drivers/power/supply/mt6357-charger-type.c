@@ -530,7 +530,7 @@ static int get_vbus_voltage(struct mtk_charger_type *info,
 	return ret;
 }
 
-bool dock_chargered()
+bool dock_chargered(void)
 {
 	union power_supply_propval reta = {0,};
 	struct power_supply *ext_psy = power_supply_get_by_name("customer");
