@@ -488,18 +488,18 @@ int scp_request_freq(void)
 	return 0;
 }
 
-void wait_scp_dvfs_init_done(void)
+int wait_scp_dvfs_init_done(void)
 {
-	int count = 0;
+	unsigned long deadline = jiffies + msecs_to_jiffies(3000);
 
-	while (g_scp_dvfs_init_flag != 1) {
-		mdelay(1);
-		count++;
-		if (count > 3000) {
-			pr_err("SCP dvfs driver init fail\n");
-			WARN_ON(1);
+	while (READ_ONCE(g_scp_dvfs_init_flag) != 1) {
+		if (time_after_eq(jiffies, deadline)) {
+			pr_err("SCP DVFS probe did not complete within 3000 ms\n");
+			return -ETIMEDOUT;
 		}
+		msleep(1);
 	}
+	return 0;
 }
 
 int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
@@ -1243,17 +1243,20 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	}
 
 	/* get scp dvfs opp count */
-	ret = of_property_count_u32_elems(node, "dvfs-opp") / 7;
-	if (ret <= 0) {
+	ret = of_property_count_u32_elems(node, "dvfs-opp");
+	if (ret <= 0 || ret % 7) {
+		dev_err(&pdev->dev, "missing or invalid dvfs-opp table: %d\n", ret);
+		kfree(dvfs);
 		kfree(buf);
 		kfree(sd);
-		return ret;
+		return -EINVAL;
 	}
+	ret /= 7;
 
 	dvfs->scp_opp_num = ret;
 	/* init opp data structure */
 	opp = kcalloc(dvfs->scp_opp_num, sizeof(*opp), GFP_KERNEL);
-	if (!dvfs) {
+	if (!opp) {
 		kfree(dvfs);
 		kfree(buf);
 		kfree(sd);

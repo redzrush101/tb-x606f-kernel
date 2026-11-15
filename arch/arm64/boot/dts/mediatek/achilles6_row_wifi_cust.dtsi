@@ -77,7 +77,8 @@
 	capsensor: capsensor@28 {
 		compatible = "mediatek,capsensor";
 		reg = <0x28>;
-		status = "okay";
+		/* SX9311 uses this address; avoid a forward overlay target. */
+		status = "disabled";
 	};
 
 	speaker_amp: speaker_amp@34 {

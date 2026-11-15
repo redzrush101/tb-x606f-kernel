@@ -65,6 +65,20 @@ static void dvfsrc_setup_vopp_table(struct mtk_dvfsrc *dvfsrc)
 	struct arm_smccc_res ares;
 	u32 num_vopp;
 
+	if (of_property_read_bool(dvfsrc->dev->parent->of_node,
+				  "mediatek,legacy-vcorefs")) {
+		dvfsrc->num_vopp = mtk_dvfsrc_vcore_opp_count();
+		dvfsrc->vopp_uv_tlb = devm_kcalloc(dvfsrc->dev,
+			dvfsrc->num_vopp, sizeof(u32), GFP_KERNEL);
+		if (!dvfsrc->vopp_uv_tlb) {
+			dvfsrc->num_vopp = 0;
+			return;
+		}
+		for (i = 0; i < dvfsrc->num_vopp; i++)
+			dvfsrc->vopp_uv_tlb[i] = mtk_dvfsrc_vcore_uv_table(i);
+		return;
+	}
+
 	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL,
 		MTK_SIP_VCOREFS_GET_NUM_V,
 		0, 0, 0, 0, 0, 0,
@@ -113,7 +127,7 @@ static int dvfsrc_vcore_check(struct notifier_block *b,
 
 	dvfsrc = container_of(b, struct mtk_dvfsrc, dvfsrc_vchk_notifier);
 
-	if ((!dvfsrc->vcore_power) || (gear > dvfsrc->num_vopp))
+	if ((!dvfsrc->vcore_power) || (gear >= dvfsrc->num_vopp))
 		return NOTIFY_DONE;
 
 	predict_uv = dvfsrc->vopp_uv_tlb[gear];

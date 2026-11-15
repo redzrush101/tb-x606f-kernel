@@ -64,7 +64,13 @@ def split_gzip(data):
     return data[:len(data) - len(decoder.unused_data)], decoder.unused_data, raw
 
 
-def main(stock_path, kernel_path, output_path):
+def dt_table(dtb):
+    require(dtb[:4] == b'\xd0\x0d\xfe\xed', 'Expected an FDT blob')
+    return (struct.pack('>8I', 0xd7b7ab1e, 64 + len(dtb), 32, 32, 1, 32, 2048, 0)
+            + struct.pack('>8I', len(dtb), 64, 0, 0, 0, 0, 0, 0) + dtb)
+
+
+def main(stock_path, kernel_path, output_path, dtb_path=None):
     stock_path, kernel_path, output = map(Path, (stock_path, kernel_path, output_path))
     if zipfile.is_zipfile(stock_path):
         with zipfile.ZipFile(stock_path) as archive:
@@ -82,9 +88,14 @@ def main(stock_path, kernel_path, output_path):
     new_gzip, extra, raw = split_gzip(kernel_path.read_bytes())
     require(not extra, 'Expected Image.gz without an appended DTB')
     require(raw[56:60] == b'ARM\x64', 'Expected an ARM64 kernel Image')
+    stock_appended_dtb = appended_dtb
+    if dtb_path:
+        appended_dtb = Path(dtb_path).read_bytes()
+        parts['dtb'] = dt_table(appended_dtb)
     parts['kernel'] = new_gzip + appended_dtb
     header = bytearray(stock[:page])
     struct.pack_into('<I', header, 8, len(parts['kernel']))
+    struct.pack_into('<I', header, 1648, len(parts['dtb']))
     # Android v0/v1/v2 boot ID: SHA1 of each component and its LE32 size.
     digest = hashlib.sha1()
     for name in ('kernel', 'ramdisk', 'second', 'recovery_dtbo', 'dtb'):
@@ -126,21 +137,29 @@ def main(stock_path, kernel_path, output_path):
             else:
                 require(isinstance(d, avbtool.AvbHashDescriptor), 'Unsupported AVB descriptor')
         subprocess.run(command, check=True)
-    subprocess.run([sys.executable, str(tool), 'verify_image', '--image', str(output)], check=True)
+    # avbtool locates hash-descriptor images by partition name, not filename.
+    with tempfile.TemporaryDirectory() as verification:
+        canonical = Path(verification) / 'boot.img'
+        canonical.symlink_to(output.resolve())
+        subprocess.run([sys.executable, str(tool), 'verify_image', '--image', str(canonical)], check=True)
     result = output.read_bytes()
     verified, current = unpack(result)
     for name in ('ramdisk', 'second', 'recovery_dtbo', 'dtb'):
         require(verified[name] == parts[name], name + ' changed during repacking')
     require(verified['kernel'] == parts['kernel'], 'Kernel changed during repacking')
     require(len(result) == len(stock), 'Partition size changed')
-    require({k: v for k, v in current.items() if k != 'kernel_size'} ==
-            {k: v for k, v in original.items() if k != 'kernel_size'},
+    changed = {'kernel_size', 'dtb_size'} if dtb_path else {'kernel_size'}
+    require({k: v for k, v in current.items() if k not in changed} ==
+            {k: v for k, v in original.items() if k not in changed},
             'Stock boot parameters changed')
     manifest = dict(stock_sha256=sha(stock), output_sha256=sha(result),
                     partition_size=len(stock), stock_header=original, output_header=current,
                     preserved_sha256={n: sha(parts[n]) for n in
-                                      ('ramdisk', 'second', 'recovery_dtbo', 'dtb')},
-                    appended_stock_dtb_sha256=sha(appended_dtb),
+                                      ('ramdisk', 'second', 'recovery_dtbo', 'dtb')
+                                      if n != 'dtb' or not dtb_path},
+                    appended_stock_dtb_sha256=sha(stock_appended_dtb),
+                    output_dtb_sha256=sha(appended_dtb),
+                    dtb_source='compiled mt6765' if dtb_path else 'stock',
                     kernel_version=raw[raw.index(b'Linux version '):].split(b'\0')[0].decode(),
                     avb='Regenerated unsigned hash footer; Lenovo signature cannot be retained')
     output.with_suffix('.json').write_text(json.dumps(manifest, indent=2) + '\n')
@@ -148,6 +167,6 @@ def main(stock_path, kernel_path, output_path):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4:
-        sys.exit('Usage: repack.py stock.zip-or-boot.img Image.gz output.img')
+    if len(sys.argv) not in (4, 5):
+        sys.exit('Usage: repack.py stock.zip-or-boot.img Image.gz output.img [replacement.dtb]')
     main(*sys.argv[1:])

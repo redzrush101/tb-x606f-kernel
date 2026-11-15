@@ -532,3 +532,6 @@ CONFIG_PSTORE_PMSG=y
 
 # Android 10 GPU, power and memory HALs use the stock debugfs interfaces.
 CONFIG_DEBUG_FS=y
+
+# Identify the persistent-log hardware test in crash dumps.
+CONFIG_LOCALVERSION="-x606f-scp2"

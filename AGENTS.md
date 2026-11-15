@@ -10,7 +10,8 @@ directory is ignored. Use `./build-boot.sh` to build with Podman or Docker into
 `out-container/`, using the bundled stock boot template by default. A stock
 firmware ZIP or boot image may be passed as an optional argument.
 
-The default `amar_row_wifi_defconfig` builds the donor. Target panel/touch,
-DT, config, and module interfaces still require porting. Document build and
+The default `achilles6_row_wifi_defconfig` builds the TB-X606F target and its
+matching DTB/DTBO. Android boot was verified on the S301068 firmware; broader
+hardware testing remains. Document build and
 packaging details in `scripts/container-build/DETAILS.md`. Do not flash or
 reboot the attached tablet without the user's authorization for that action.

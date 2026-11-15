@@ -1929,8 +1929,12 @@ static int __init scp_init(void)
 	}
 
 #if SCP_DVFS_INIT_ENABLE
-	scp_dvfs_init();
-	wait_scp_dvfs_init_done();
+	ret = scp_dvfs_init();
+	if (ret)
+		return ret;
+	ret = wait_scp_dvfs_init_done();
+	if (ret)
+		return ret;
 
 	/* pll maybe gate, request pll before access any scp reg/sram */
 	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);

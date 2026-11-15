@@ -277,11 +277,6 @@
 	};
 };
 
-/* DrvGen's generic node otherwise occupies the SX9311's I2C address. */
-&capsensor {
-	status = "disabled";
-};
-
 &i2c5 {
 
 	i2c_lcd_bias@3e {
@@ -985,6 +980,21 @@
 };
 
 &{/} {
+	/* Android 10 ATF exposes separate EMI MPU SMC IDs (0x260..0x263). */
+	mediatek,legacy-emimpu;
+
+	/* LK already reserves this memory; do not reserve it a second time. */
+	ramoops@47c90000 {
+		compatible = "ramoops";
+		reg = <0 0x47c90000 0 0x000e0000>;
+		record-size = <0x00040000>;
+		console-size = <0x00040000>;
+		pmsg-size = <0x00010000>;
+		ftrace-size = <0>;
+		no-map;
+	};
+
+
 	android10_charger: mt_charger {
 		compatible = "mediatek,ac-usb-supply-parent";
 	};

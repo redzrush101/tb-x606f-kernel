@@ -4,7 +4,7 @@ set -euo pipefail
 if [[ $# -gt 1 || ${1:-} == --help || ${1:-} == -h ]]; then
     echo "Usage: $0 [stock-firmware.zip-or-boot.img]"
     echo "With no argument, uses the stock boot template included in this repo."
-    echo "Environment: ENGINE=podman|docker JOBS=8 DEFCONFIG=amar_row_wifi_defconfig"
+    echo "Environment: ENGINE=podman|docker JOBS=8 DEFCONFIG=achilles6_row_wifi_defconfig"
     exit "$(( $# > 1 ? 2 : 0 ))"
 fi
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -22,7 +22,7 @@ mkdir -p "$root/out-container"
 user_args=(--user "$(id -u):$(id -g)")
 if [[ $engine == *podman ]]; then user_args=(--userns=keep-id); fi
 "$engine" run --rm "${user_args[@]}" --security-opt label=disable \
-    -e HOME=/tmp -e JOBS="${JOBS:-8}" \
-    -e DEFCONFIG="${DEFCONFIG:-amar_row_wifi_defconfig}" \
+    -e HOME=/tmp -e JOBS="${JOBS:-8}" -e BOOT_DTB="${BOOT_DTB:-achilles6_row_wifi}" \
+    -e DEFCONFIG="${DEFCONFIG:-achilles6_row_wifi_defconfig}" \
     -v "$root:/src:rw" -v "$input:/input/stock:ro" \
     "$image" bash scripts/container-build/build.sh

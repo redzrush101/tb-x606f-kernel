@@ -67,13 +67,59 @@ static const char *id2name(unsigned int axi_id, unsigned int port_id)
 	return (char *)UNKNOWN_MASTER;
 }
 
+/* MT6765 Android 10 ATF predates the multiplexed 0x50b MPU service. */
+static void emi_mpu_call(unsigned int cmd, unsigned long arg1,
+	unsigned long arg2, unsigned long arg3, struct arm_smccc_res *res)
+{
+	unsigned long offset;
+
+	if (!of_property_read_bool(of_root, "mediatek,legacy-emimpu")) {
+		arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, cmd, arg1, arg2,
+			arg3, 0, 0, 0, res);
+		return;
+	}
+
+	switch (cmd) {
+	case MTK_EMIMPU_SET:
+		arm_smccc_smc(MTK_SIP_SMC_CMD(0x262), arg1, arg2, arg3,
+			0, 0, 0, 0, res);
+		break;
+	case MTK_EMIMPU_CLEAR:
+		arm_smccc_smc(MTK_SIP_SMC_CMD(0x263), arg1, 0, 0,
+			0, 0, 0, 0, res);
+		break;
+	case MTK_EMIMPU_READ:
+		if (arg1 == MTK_EMIMPU_READ_SA)
+			offset = EMI_MPU_SA(arg2);
+		else if (arg1 == MTK_EMIMPU_READ_EA)
+			offset = EMI_MPU_EA(arg2);
+		else if (arg1 == MTK_EMIMPU_READ_APC)
+			offset = EMI_MPU_APC(arg2, arg3);
+		else {
+			res->a0 = SIP_SVC_E_INVALID_PARAMS;
+			return;
+		}
+		arm_smccc_smc(MTK_SIP_SMC_CMD(0x261), offset, 0, 0,
+			0, 0, 0, 0, res);
+		break;
+	case MTK_EMIMPU_SLVERR:
+		offset = EMI_MPU_CTRL_D(arg1);
+		arm_smccc_smc(MTK_SIP_SMC_CMD(0x261), offset, 0, 0,
+			0, 0, 0, 0, res);
+		arm_smccc_smc(MTK_SIP_SMC_CMD(0x260), offset, res->a0 | 0x2,
+			0, 0, 0, 0, 0, res);
+		break;
+	default:
+		res->a0 = SIP_SVC_E_NOT_SUPPORTED;
+	}
+}
+
 static unsigned int emi_mpu_read_protection(
 	unsigned int reg_type, unsigned int region, unsigned int dgroup)
 {
 	struct arm_smccc_res smc_res;
 
-	arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_READ,
-		reg_type, region, dgroup, 0, 0, 0, &smc_res);
+	emi_mpu_call(MTK_EMIMPU_READ, reg_type, region, dgroup, &smc_res);
 	return (unsigned int)smc_res.a0;
 }
 
@@ -219,8 +265,7 @@ int emi_mpu_set_protection(struct emi_region_info_t *region_info)
 	for (i = EMI_MPU_DGROUP_NUM - 1; i >= 0; i--) {
 		end = (unsigned int)(region_info->end >> EMI_MPU_ALIGN_BITS) |
 			(i << 24);
-		arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_SET,
-			start, end, region_info->apc[i], 0, 0, 0, &smc_res);
+		emi_mpu_call(MTK_EMIMPU_SET, start, end, region_info->apc[i], &smc_res);
 	}
 
 	return 0;
@@ -269,9 +314,8 @@ int emi_mpu_set_single_permission(unsigned int region,
 			end = (end << EMI_MPU_ALIGN_BITS) + DRAM_OFFSET;
 			end = end >> EMI_MPU_ALIGN_BITS;
 
-			arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_SET,
-				(region << 24) | start, (i << 24) | end,
-				new_apc, 0, 0, 0, &smc_res);
+			emi_mpu_call(MTK_EMIMPU_SET, (region << 24) | start, (i << 24) | end,
+				new_apc, &smc_res);
 		} else {
 			pr_debug("[EMI] don't need to set apc\n");
 			continue;
@@ -292,8 +336,7 @@ int emi_mpu_clear_protection(struct emi_region_info_t *region_info)
 		return -1;
 	}
 
-	arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_CLEAR,
-		region_info->region, 0, 0, 0, 0, 0, &smc_res);
+	emi_mpu_call(MTK_EMIMPU_CLEAR, region_info->region, 0, 0, &smc_res);
 
 	return 0;
 }
@@ -509,8 +552,7 @@ static void enable_slverr(void)
 	unsigned int domain;
 
 	for (domain = 0; domain < EMI_MPU_DOMAIN_NUM; domain++) {
-		arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_SLVERR,
-			i, 0, 0, 0, 0, 0, &smc_res);
+		emi_mpu_call(MTK_EMIMPU_SLVERR, domain, 0, 0, &smc_res);
 	}
 }
 #endif

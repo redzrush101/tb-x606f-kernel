@@ -244,6 +244,13 @@ static int mtk_dvfsrc_up_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mtk_dvfsrc_up *dvfsrc;
 
+	/* The parent already initializes Android 10 legacy VCOREFS. */
+	if (of_property_read_bool(dev->parent->of_node,
+				  "mediatek,legacy-vcorefs")) {
+		dev_info(dev, "legacy ATF: optional new-service helpers disabled\n");
+		return -ENODEV;
+	}
+
 	dvfsrc = devm_kzalloc(&pdev->dev, sizeof(*dvfsrc), GFP_KERNEL);
 	if (!dvfsrc)
 		return -ENOMEM;

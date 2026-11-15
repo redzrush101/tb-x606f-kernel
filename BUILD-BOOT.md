@@ -1,81 +1,86 @@
-# Build a boot.img for the Lenovo TB-X606F
+# Build and flash the TB-X606F kernel
 
-You need a Linux PC, Git, and **either Podman or Docker**. The script downloads
-and runs the compiler in a container, so you do not need to install a cross
-compiler yourself. Have about 10 GB of free disk space and 8 GB of RAM available.
+You need a Linux x86-64 PC, Git, and **Podman or Docker**. Have about 10 GB of
+free disk space and 8 GB of RAM. The compiler runs in a container; the script
+sets it up for you. The stock boot template is included—no firmware download
+needed.
 
-**This kernel is still an unfinished port.** It builds, but the resulting image
-has not been tested on the tablet. Building it successfully does not mean it
-will boot.
+This version has booted Android on a Lenovo TB-X606F running the S301068 Android
+10 firmware. That confirms booting; other hardware features still need testing.
 
-## 1. Get the source
+## Build it
 
 Open a terminal and run:
 
 ```sh
 git clone --branch x606f-android10-port https://github.com/redzrush101/tb-x606f-kernel.git
 cd tb-x606f-kernel
-```
-
-The build scripts and stock boot template are included. You do not need to
-download the stock firmware or a separate build kit.
-
-## 2. Start the build
-
-```sh
 ./build-boot.sh
 ```
 
-That's it. The script builds the kernel and packs it using the included Lenovo
-stock boot template, preserving its ramdisk, device trees and boot settings.
-
-The script chooses Podman if installed, otherwise Docker. The first run takes
-longer because it downloads the build tools. Leave the terminal open until you
-see `Built /src/out-container/boot.img`.
-
-## 3. Find your image
-
-Your new image is here, inside the cloned repository:
+The first run downloads the build tools and takes longer. When it finishes,
+you will find these two files:
 
 ```text
 out-container/boot.img
+out-container/dtbo.img
 ```
 
-The script checks that the image keeps the stock load addresses, ramdisk, both
-device-tree copies and 32 MB partition size. It also checks the new image's
-hashes. The other files in `out-container/` record the settings and build log.
+Keep them together. The new kernel needs its matching device trees, which is
+why flashing only `boot.img` is not enough.
 
-The image is **unsigned**: changing the kernel invalidates Lenovo's signature.
-It cannot be assumed to work with a locked bootloader. The script only builds
-files; it does not flash anything onto your tablet.
+## Flash it
 
-## If something goes wrong
+Your bootloader must already be unlocked and allow modified images. Keep a
+backup of your original boot and DTBO partitions. These instructions do not
+unlock the device or erase your data.
 
-- **Podman or Docker is missing:** install either one using your Linux
-  distribution's package manager, then rerun the command.
-- **Docker cannot connect or says permission denied:** make sure Docker is
-  running and your user can run `docker info`, or use Podman.
-- **The PC runs out of memory:** use fewer compiler jobs:
-
-  ```sh
-  JOBS=2 ./build-boot.sh
-  ```
-
-- **You want to choose Docker explicitly:**
-
-  ```sh
-  ENGINE=docker ./build-boot.sh
-  ```
-
-- **Compilation fails:** read `out-container/build.log`. If asking for help,
-  include the first error and the lines around it.
-
-If you want to use your own stock firmware instead of the included template,
-you can pass its ZIP or extracted boot image as an optional argument:
+If you use **MTKClient**, connect the tablet in the same preloader/BROM mode
+you normally use. Run these commands from the cloned repository:
 
 ```sh
-./build-boot.sh /path/to/stock/boot.img
+mtk r boot,dtbo stock-boot-backup.img,stock-dtbo-backup.img
+mtk w boot,dtbo out-container/boot.img,out-container/dtbo.img
 ```
 
-For the exact stock offsets, compiler information and known compatibility
-limits, see [the technical details](scripts/container-build/DETAILS.md).
+After both writes finish, reboot with the tablet's buttons. If the long Power
+hold switches it off, release the buttons and press Power again to start it.
+`mtk reset` did not reliably start Android on the tested tablet.
+
+If you already use **fastboot** for flashing on your tablet, use:
+
+```sh
+fastboot flash boot out-container/boot.img
+fastboot flash dtbo out-container/dtbo.img
+fastboot reboot
+```
+
+Use either method. You do not need to run both sets of commands.
+
+## If it fails to boot
+
+With MTKClient, reconnect in preloader/BROM mode and save a log dump:
+
+```sh
+mtk r expdb expdb-failed-boot.bin
+```
+
+To restore the backups you made before flashing:
+
+```sh
+mtk w boot,dtbo stock-boot-backup.img,stock-dtbo-backup.img
+```
+
+Then reboot with the buttons. If asking for help, include the dump and say
+which build you used.
+
+## Build problems
+
+- **Podman or Docker missing:** install either one using your Linux package
+  manager. Docker must be running and usable by your account.
+- **Not enough memory:** run `JOBS=2 ./build-boot.sh`.
+- **Choose Docker explicitly:** run `ENGINE=docker ./build-boot.sh`.
+- **Compiler error:** check `out-container/build.log` and share the first error
+  with the lines around it.
+
+[Technical details and boot-test evidence](scripts/container-build/DETAILS.md)
