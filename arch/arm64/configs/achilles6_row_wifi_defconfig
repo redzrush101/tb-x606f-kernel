@@ -534,4 +534,9 @@ CONFIG_PSTORE_PMSG=y
 CONFIG_DEBUG_FS=y
 
 # Identify the persistent-log hardware test in crash dumps.
-CONFIG_LOCALVERSION="-x606f-scp2"
+CONFIG_LOCALVERSION="-x606f-wcn3"
+
+# Rebuild the complete vendor module set for this kernel instead of using 4.9 KOs.
+CONFIG_WLAN_DRV_BUILD_IN=y
+CONFIG_MTK_COMBO_BT=y
+CONFIG_MTK_COMBO_WIFI=y

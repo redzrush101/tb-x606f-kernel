@@ -6,7 +6,12 @@ sets it up for you. The stock boot template is included—no firmware download
 needed.
 
 This version has booted Android on a Lenovo TB-X606F running the S301068 Android
-10 firmware. That confirms booting; other hardware features still need testing.
+10 firmware. Wi-Fi connected to a saved 5 GHz network and passed an internet
+ping test. Bluetooth switched on successfully. GPS and the remaining hardware
+still need functional testing.
+
+The vendor drivers are included and built into the kernel. You do not need to
+download the X306F source archive or install separate module files on the tablet.
 
 ## Build it
 
@@ -62,6 +67,7 @@ Use either method. You do not need to run both sets of commands.
 With MTKClient, reconnect in preloader/BROM mode and save a log dump:
 
 ```sh
+mtk da peek 0x47c90000 0xe0000 --filename pstore-failed-boot.bin
 mtk r expdb expdb-failed-boot.bin
 ```
 
@@ -71,7 +77,7 @@ To restore the backups you made before flashing:
 mtk w boot,dtbo stock-boot-backup.img,stock-dtbo-backup.img
 ```
 
-Then reboot with the buttons. If asking for help, include the dump and say
+Then reboot with the buttons. If asking for help, include both dumps and say
 which build you used.
 
 ## Build problems

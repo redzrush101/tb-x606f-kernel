@@ -376,3 +376,10 @@ config MTK_CONNSYS_DEDICATED_LOG_PATH
 	     from connsys (by EMI or other specific path)
 	  2. The scope may include (but not limited) Wi-Fi firmware log,
 	     BT firmware log, GPS firmware log etc.
+
+config WLAN_DRV_BUILD_IN
+	bool "Build Lenovo MT6765 vendor connectivity drivers into the kernel"
+	depends on MTK_COMBO_CHIP_CONSYS_6765
+	help
+	  Include the WMT, WLAN, Bluetooth, GPS, FM and MET drivers from the
+	  Lenovo TB-X306F GPL source package in the boot image.

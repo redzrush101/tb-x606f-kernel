@@ -11,16 +11,47 @@ read back; each partition matched its build image byte for byte.
 ADB then reported:
 
 ```text
-Linux 4.19.127-x606f-scp2-gb6579c79b-dirty aarch64
+Linux 4.19.127-x606f-wcn3-g8a258d716-dirty aarch64
 sys.boot_completed=1
 init.svc.bootanim=stopped
 init.svc.surfaceflinger=running
 ```
 
-The display service reported the internal 1200×1920 display ON. The crash log
-buffer was empty at the time of inspection. This establishes Android boot on
-that tablet, not complete validation of cameras, sound, sensors, suspend,
-networking or every other hardware function.
+The display service reported the internal 1200×1920 display ON in the earlier
+SCP2 test. With WCN3, Android completed boot, Wi-Fi associated on 5 GHz, acquired
+an IP address and answered all three internet pings.
+Bluetooth reported ON with zero crashes. The Android crash buffer was empty.
+FM, Bluetooth and GPS device nodes are present. Android recognizes the GPS
+provider; no satellite fix
+was verified. Cameras, sound, sensors, suspend, Bluetooth pairing and FM reception
+have not been validated.
+
+## Vendor connectivity drivers
+
+The official Lenovo X306F vendor sources are included under
+`vendor/mediatek/kernel_modules`; see [source provenance](../../vendor/mediatek/kernel_modules/SOURCE.md).
+The default config builds WMT/common, MT6765 AXI Gen4m WLAN, legacy Bluetooth,
+GPS and MT6631 FM into the kernel, alongside the release's default MET stub.
+There are no separate `.ko` files to install, and the old stock 4.9 modules are
+not needed for these drivers. MET hardware instrumentation is unavailable in
+this release for MT6765.
+
+Android's existing WMT loader initializes the built-in drivers using its ioctl
+path. Deferred GPS EMI and firmware-log initialization must stay in normal
+`.text`: the first WCN1 test panicked when it called a discarded `__init`
+function. Both functions and their cleanup paths now remain resident. The target
+also enables the Bluetooth and Wi-Fi registration flags. FM's build receives
+`CFG_FM_CHIP` from the configured chip, selecting the MT6631 fallback before
+WMT has detected the analog chip.
+
+The compatibility unit checks pass in the container. A full modpost section
+check of WCN2 found only the existing MT6765 clock probe references to init
+arrays, with no deferred connectivity initialization mismatches.
+
+For failed boots, capture both expdb and the pstore RAM before another boot.
+WCN1's first 18 MiB of expdb were zero; the final 2 MiB recorded the resets,
+while pstore contained the actual panic backtrace. An expdb-only dump can miss
+the kernel failure.
 
 ## What the build produces
 
